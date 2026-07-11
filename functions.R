@@ -8,7 +8,7 @@ library(readnoaa)
 library(zoo)
 
 # access Mountain True data 
-mountain_true_data <- read.csv("real_mountain_true_cleaned.csv", check.names=FALSE)
+mountain_true_data <- read.csv("mountain_true.csv", check.names=FALSE)
 
 
 # retrieving USGS data and merging and filtering with Mountain True data

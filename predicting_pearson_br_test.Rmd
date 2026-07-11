@@ -1,0 +1,82 @@
+---
+title: "getting today's data"
+author: "August Duncan"
+date: "2026-07-10"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(sf)
+```
+
+
+getting todays data for French Broad at Pearson Bridge to predict the ecoli values. USGS site USGS-03451500. 
+
+
+"today" is going to be yesterday, the day before, so all of the data is actually updated. for some variables
+the data is uploaded for today, the current day, but for this site in particular precip, gage height, and discharge are NA for today, assuming that it just isnt done measuring it yet. it might be better to use what we can from today and what we dont have use yesterdays, but for the sake of consistency im going to set everything to yesterday. 
+```{r}
+today <- Sys.Date() - 1
+seven_days_ago <- as.character(today - 6)
+today <- as.character(today)
+```
+
+```{r}
+today_usgs <- read_waterdata_daily(monitoring_location_id = "USGS-03451500", time = c(seven_days_ago, today)) %>% dplyr::select(parameter_code, statistic_id, time, value) %>% st_drop_geometry()
+```
+```{r}
+rain <- today_usgs %>% filter(parameter_code == "00045") %>% 
+  rename(Precip.1.SUM = value) %>%
+  mutate(Precip.2.SUM = rollsumr(Precip.1.SUM, k = 2, fill = NA)) %>% 
+  mutate(Precip.3.SUM = rollsumr(Precip.1.SUM, k = 3, fill = NA)) %>% 
+  mutate(Precip.5.SUM = rollsumr(Precip.1.SUM, k = 5, fill = NA)) %>% 
+  mutate(Precip.7.SUM = rollsumr(Precip.1.SUM, k = 7, fill = NA)) %>%
+  filter(time == today) %>% 
+  pivot_longer(cols = c(4:8), names_to = "variable", values_to = "value") %>%
+  pivot_wider(names_from = time, values_from = value) %>% 
+  select(-parameter_code, -statistic_id)
+```
+
+```{r}
+today_usgs <- today_usgs %>% filter(`time` == today)
+
+get_codes <- read_waterdata_parameter_codes(parameter_code = today_usgs$parameter_code) %>% 
+    dplyr::select(parameter_code, parameter_name)
+  
+today_usgs <- today_usgs %>% pivot_wider(names_from = time) %>% left_join(get_codes, by = "parameter_code")
+
+stats_text <- read_waterdata_metadata(collection = "statistic-codes")
+
+stats_text <- stats_text %>% rename(statistic_id = statistic_code) %>% 
+  dplyr::select(-statistic_description)
+  
+today_usgs <- today_usgs %>% left_join(stats_text, by = "statistic_id") %>% 
+  mutate(variable = paste(parameter_name, statistic_name, sep=".")) %>% 
+  dplyr::select(-statistic_id, -statistic_name, -parameter_name, -parameter_code)
+```
+
+```{r}
+today_usgs <- rbind(today_usgs, rain)
+
+today_usgs <- today_usgs %>% pivot_wider(names_from = variable, values_from = all_of(today))
+colnames(today_usgs) <- make.names(colnames(today_usgs))
+```
+
+FORMULA
+E.Coli.LOG ~ -3.05 + 0.11 * Turbidity.MEAN.ROOT + 0.91 * Discharge.MEAN.LOG - 
+    0.22 * Dissolved.oxygen.MAXIMUM + 0.25 * Precip.2.SUM + 0.56*pH.MINIMUM
+
+```{r}
+prediction <- -3.05 + 0.11*sqrt(today_usgs$Turbidity..Form.Neph.MEAN) + 0.91*log10(today_usgs$Discharge.MEAN) - 0.22*today_usgs$Dissolved.oxygen.MAXIMUM + 0.25*today_usgs$Precip.2.SUM + 0.56*today_usgs$pH.MINIMUM
+
+prediction <- 10^(prediction)
+prediction
+```
+
+
+
+
+
+
+
