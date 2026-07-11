@@ -27,7 +27,7 @@ get_the_data <- function(usgs_name, start_time, end_time, mountain_true_site){
   
   filtered_usgs <- filtered_usgs %>% left_join(get_codes, by = "parameter_code")
   
-  mountain_true_data <- mountain_true_data %>% dplyr::select(c(-1, -3)) %>% 
+  mountain_true_data <- mountain_true_data %>% dplyr::select(c(-Latitude, -Longitude)) %>% 
     filter(Site == mountain_true_site) %>% 
     mutate(parameter_name = "E Coli", statistic_id = "00006")
  
@@ -86,7 +86,7 @@ get_the_data_and_precip <- function(usgs_name, start_time, end_time, mountain_tr
   
   filtered_usgs <- bind_rows(filtered_usgs, rain)
   
-  mountain_true_data <- mountain_true_data %>% dplyr::select(c(-1, -3)) %>% 
+  mountain_true_data <- mountain_true_data %>% dplyr::select(c(-Latitude, -Longitude)) %>% 
     filter(Site == mountain_true_site) %>% 
     mutate(variable = "E.Coli.SUM")
   
