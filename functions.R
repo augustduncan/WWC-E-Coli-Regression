@@ -13,9 +13,9 @@ mountain_true_data <- read.csv("mountain_true.csv", check.names=FALSE)
 
 # retrieving USGS data and merging and filtering with Mountain True data
 # input arguments are USGS site number, start and end dates, and the corresponding Mountain True site
-get_the_data <- function(usgs_name, start_time, end_time, mountain_true_site){
+get_the_data <- function(usgs_site, start_time, end_time, mountain_true_site){
   
-  raw_usgs <- read_waterdata_daily(monitoring_location_id = usgs_name, time = c(start_time, end_time))
+  raw_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(start_time, end_time))
   
   filtered_usgs <- raw_usgs %>% 
     dplyr::select(parameter_code, statistic_id, time, value) %>% 
@@ -50,9 +50,9 @@ get_the_data <- function(usgs_name, start_time, end_time, mountain_true_site){
 }
 
 # if the USGS site contains precipitation, run this function instead. 
-get_the_data_and_precip <- function(usgs_name, start_time, end_time, mountain_true_site){
+get_the_data_and_precip <- function(usgs_site, start_time, end_time, mountain_true_site){
   
-  raw_usgs <- read_waterdata_daily(monitoring_location_id = usgs_name, time = c(start_time, end_time))
+  raw_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(start_time, end_time))
   
   filtered_usgs <- raw_usgs %>% 
     dplyr::select(parameter_code, statistic_id, time, value) %>% 
@@ -97,8 +97,8 @@ get_the_data_and_precip <- function(usgs_name, start_time, end_time, mountain_tr
   merged_data <- merged_data %>% 
     pivot_longer(cols = -variable, names_to = "Date", values_to = "value", values_transform = list(value = as.numeric)) %>% 
     pivot_wider(id_cols = Date, names_from = variable, values_from = value) %>% 
-    rename_with(make.names) %>% relocate(Date, E.Coli.SUM, sort(names(.))) %>% drop_na(E.Coli.SUM)
-  
+    rename_with(make.names) %>% relocate(Date, E.Coli.SUM, sort(names(.))) %>% drop_na(E.Coli.SUM) %>% 
+    relocate(Precip.1.SUM, Precip.2.SUM, Precip.3.SUM, Precip.5.SUM, Precip.7.SUM, .after = last_col())
 }
 
 # use with an appropriate site if the USGS site does not contain precipitation
@@ -121,11 +121,6 @@ add_noaa_precip <- function(df, start_date, end_date){
     mutate(Precip.1.SUM = replace_na(Precip.1.SUM, 0))
   
   merged_data <- inner_join(daily, df, by = "Date")
-  
-  merged_data <- merged_data %>% 
-    mutate(Precip.3.SUM = coalesce(Precip.3.SUM, Precip.2.SUM)) %>%
-    mutate(Precip.5.SUM = coalesce(Precip.5.SUM, Precip.3.SUM)) %>%
-    mutate(Precip.7.SUM = coalesce(Precip.7.SUM, Precip.5.SUM))
     
   merged_data <- merged_data %>% dplyr::select(-station, -name) %>% 
     relocate(Precip.1.SUM, Precip.2.SUM, Precip.3.SUM, Precip.5.SUM, Precip.7.SUM, .after = last_col())
@@ -141,3 +136,66 @@ add_groups <- function(df, column_name){
   new_name <- paste(column_name, ".GROUP", sep = "")
   data <- data %>% rename(!!new_name := group_cut) %>% relocate(!!new_name, .after = all_of(column_name))
 }
+
+# getting data for TODAY (actually this is going to be set for yesterday) 
+# in order to plug into the formulas to predict e coli values!
+# this includes USGS precipitation. 
+get_todays_data <- function(usgs_site){
+  today <- as.character(Sys.Date() - 1)
+  seven_days_ago <- as.character(Sys.Date() - 7)
+  
+  today_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(seven_days_ago, today)) %>% 
+    dplyr::select(parameter_code, statistic_id, time, value) %>% st_drop_geometry()
+  
+  rain <- today_usgs %>% filter(parameter_code == "00045") %>% 
+    rename(Precip.1.SUM = value) %>%
+    mutate(Precip.2.SUM = rollsumr(Precip.1.SUM, k = 2, fill = NA)) %>% 
+    mutate(Precip.3.SUM = rollsumr(Precip.1.SUM, k = 3, fill = NA)) %>% 
+    mutate(Precip.5.SUM = rollsumr(Precip.1.SUM, k = 5, fill = NA)) %>% 
+    mutate(Precip.7.SUM = rollsumr(Precip.1.SUM, k = 7, fill = NA)) %>%
+    filter(time == today) %>% 
+    pivot_longer(cols = c(4:8), names_to = "variable", values_to = "value") %>%
+    pivot_wider(names_from = time, values_from = value) %>% 
+    select(-parameter_code, -statistic_id)
+  
+  today_usgs <- today_usgs %>% filter(`time` == today)
+  
+  get_codes <- read_waterdata_parameter_codes(parameter_code = today_usgs$parameter_code) %>% 
+    dplyr::select(parameter_code, parameter_name)
+  
+  today_usgs <- today_usgs %>% pivot_wider(names_from = time) %>% left_join(get_codes, by = "parameter_code")
+  
+  stats_text <- read_waterdata_metadata(collection = "statistic-codes")
+  
+  stats_text <- stats_text %>% rename(statistic_id = statistic_code) %>% 
+    dplyr::select(-statistic_description)
+  
+  today_usgs <- today_usgs %>% left_join(stats_text, by = "statistic_id") %>% 
+    mutate(variable = paste(parameter_name, statistic_name, sep=".")) %>% 
+    dplyr::select(-statistic_id, -statistic_name, -parameter_name, -parameter_code)
+  
+  today_usgs <- rbind(today_usgs, rain)
+  
+  today_usgs <- today_usgs %>% pivot_wider(names_from = variable, values_from = all_of(today))
+  colnames(today_usgs) <- make.names(colnames(today_usgs))
+  
+  return(today_usgs)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
