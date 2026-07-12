@@ -1,0 +1,126 @@
+---
+title:  "This Dashboard Has a Map!"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r, warning=F, message=F}
+library(plotly)
+library(tidyverse)
+library(flexdashboard)
+library(DT)
+library(crosstalk)
+library(sf)
+library(leaflet)
+library(stringr)
+```
+
+```{r}
+
+# Read in the data set that August created
+mt_data_wide<-read.csv("mountain_true.csv", check.names = FALSE)
+#add a unique id column:
+mt_data_wide$ID<-c( 
+  "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", 
+  "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x19", "x20", 
+  "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x29", "x30", 
+  "x31", "x32", "x33", "x34", "x35", "x36", "x37", "x38", "x39", "x40", 
+  "x41", "x42", "x43", "x44", "x45", "x46", "x47", "x48"
+)
+mt_data_wide<-mt_data_wide%>%relocate(ID, .after=Site)
+mt_data_wide$Site<-as.factor(mt_data_wide$Site)
+```
+
+```{r} 
+#first get everything data column encoded as numeric. 
+mt_data_wide <- mt_data_wide %>% 
+  mutate(across(5:90, as.numeric))
+mt_data_wide <- mt_data_wide %>% mutate(across(where(is.numeric), ~replace_na(.x, 0)))
+```
+
+
+
+```{r}
+#we also need a long data set for ggplot:
+
+mt_data_long<-mt_data_wide%>%pivot_longer(
+  cols=5:90,
+  names_to="Date",
+  values_to="Ecoli")
+```
+
+```{r, warning=F, message=F}
+
+#I want to create plots and widgets that "talk" to each other.  We need to create "shared" data sets as follows:
+mt_sd_wide<-SharedData$new(mt_data_wide,  key=~ID, group="my_dashboard")  
+mt_sd_long<-SharedData$new(mt_data_long, key=~ID, group="my_dashboard")
+
+```
+
+```{r}
+# WOOOO time series
+time_s <- plot_ly(data = mt_sd_long, x = ~Date, y = ~Ecoli,
+               type = 'scatter', mode = 'lines', color=~Site) %>%
+  layout(title = "Time Series",
+         xaxis = list(title = "Date"),
+         yaxis = list(title = "E. Coli"),
+         showlegend = FALSE
+         #add_segments(x = ~Date, xend = ~Date,
+           #y = 135, yend = 135, 
+           #line = list(color = "red", dash = "dash"),
+           #showlegend = FALSE) 
+)
+```
+
+
+```{r}
+map<-leaflet(mt_sd_wide) %>%
+  addTiles() %>%
+  addMarkers(
+    lng = ~Longitude, 
+    lat = ~Latitude,
+    label=~paste0(Site)
+  )
+  
+```
+
+ 
+
+
+
+## {.sidebar}
+
+Here is a basic   **dashboard**
+
+  + Goal:  Visualize ecoli data
+  + Status:  Not  AT ALL complete
+  
+```{r}
+filter_select("site", "Select Site:", mt_sd_long, ~Site)
+
+```
+  
+
+## Column
+
+### This is a map -- when fully up to date this should be color coded based on water quality, hopefully clickable? i think shiny is the way to go with this because i really dont like the crosstalk replacements for it
+
+```{r}
+map
+```
+## Column
+
+### These are boxplots: 
+
+here should be time series data, with the actual ecoli v predictions + confidence interval for each site -- able to be filtered by site
+```{r}
+time_s
+```
+
+
+
+### This is a datatable
+
+here should be the most recent e coli measurement, our prediction, what category it falls in, the formula we used (and maybe what each of the predictor variable values are?)
