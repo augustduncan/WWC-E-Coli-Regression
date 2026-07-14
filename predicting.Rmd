@@ -1,0 +1,41 @@
+---
+title: "predicting!!"
+author: "August Duncan"
+date: "2026-07-14"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+source("functions.R")
+```
+
+okay this is going to predict the ecoli values for the past to compare with the future, as well as predicting today. 
+
+we have four sites at the moment, but this should be fairly easy to just add more if and when we get there. 
+
+formulas to be applied (these have been previously worked on and generated):
+
+Pearson Bridge -- E.Coli.LOG ~ -3.05 + 0.11* Turbidity.MEAN.ROOT + 0.91* Discharge.MEAN.LOG - 0.22* Dissolved.oxygen.MAXIMUM + 0.25* Precip.2.SUM + 0.56*pH.MINIMUM
+  USGS Site: USGS-03451500, Mountain True site "FB at Pearson Bridge"
+    
+Hominy Creek Greenway -- E.Coli.LOG ~ 3.61 + 0.57* Turbidity.MEAN.LOG + 0.26* Precip.2.SUM +  0.34* Gage.height.MEAN - 0.26*Dissolved.oxygen.MAXIMUM
+
+Bacoate -- E.Coli.LOG ~ 6.86 + 0.002 * Turbidity.RANGE + 0.85 * Precip.1.SUM - 0.06 * Specific.cond.at.25C.MINIMUM - 0.24 * Dissolved.oxygen.MEAN
+
+Westfeldt Park -- E.Coli.LOG ~ 0.31 + 0.05* Turbidity..Form.Neph.MINIMUM + 0.64* Discharge.MEAN.LOG - 0.06* Precip.1.SUM - 0.09*Precip.7.SUM
+
+```{r}
+pb <- get_the_data_and_precip("USGS-03451500", "2020-01-01", "2025-12-31", "FB at Pearson Bridge")
+
+pb <- pb %>% mutate(across(where(is.numeric), ~ replace_na(., median(., na.rm = TRUE))))
+
+pb$Predict <- 10^(-3.05 + 0.11 * sqrt(pb$Turbidity..Form.Neph.MEAN) + 0.91* log10(pb$Discharge.MEAN) - 0.22* pb$Dissolved.oxygen.MAXIMUM + 0.25* pb$Precip.2.SUM + 0.56*pb$pH.MINIMUM)
+
+pb <- pb %>% select(Date, E.Coli.SUM, Predict) %>% pivot_longer(cols = c(E.Coli.SUM, Predict), names_to = "Variable", values_to = "Value") %>% pivot_wider(names_from = Date, values_from = Value)
+```
+
+
+
+
+
