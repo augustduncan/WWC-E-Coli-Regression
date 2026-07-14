@@ -1,0 +1,143 @@
+---
+title:  "This Dashboard Has a Map!"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    runtime: shiny
+---
+```{r, warning=F, message=F}
+library(plotly)
+library(tidyverse)
+library(flexdashboard)
+library(DT)
+library(crosstalk)
+library(sf)
+library(leaflet)
+library(stringr)
+library(shiny)
+```
+
+```{r}
+
+# original, recorded mountain true data
+mt_data_wide<-read.csv("mountain_true.csv", check.names = FALSE)
+
+mt_data_wide <- mt_data_wide %>% filter(Site %in% c("FB at Pearson Bridge", "Hominy Creek Greenway", "Bacoate", "FB at Westfeldt Park"))
+#add a unique id column:
+mt_data_wide$ID<-c("x1", "x2", "x3", "x4")
+mt_data_wide<-mt_data_wide%>%relocate(ID, .after=Site)
+mt_data_wide$Site<-as.factor(mt_data_wide$Site)
+```
+
+```{r} 
+#first get everything data column encoded as numeric. 
+mt_data_wide <- mt_data_wide %>% 
+  mutate(across(5:90, as.numeric))
+mt_data_wide <- mt_data_wide %>% mutate(across(where(is.numeric), ~replace_na(.x, 0)))
+```
+
+
+```{r}
+#we also need a long data set for ggplot:
+
+mt_data_long<-mt_data_wide%>%pivot_longer(
+  cols=5:90,
+  names_to="Date",
+  values_to="Ecoli"
+)
+```
+
+
+```{r}
+output$mymap <- renderLeaflet({
+  leaflet(mt_data_wide) %>%
+    addTiles() %>%
+    addMarkers(
+      lng = ~Longitude, 
+      lat = ~Latitude,
+      label = ~Site,
+      layerId = ~Site) %>% 
+    addProviderTiles(providers$Stadia.OSMBright)
+})
+```
+
+```{r}
+selected_site <- reactiveVal(NULL)
+
+observeEvent(input$mymap_marker_click, {
+  selected_site(input$mymap_marker_click$id)
+})
+
+observeEvent(input$mymap_click, {
+  selected_site(NULL)
+})
+
+filtered_long <- reactive({
+  site_id <- selected_site()
+  if (is.null(site_id)) {
+    return(mt_data_long) 
+  } else {
+    return(mt_data_long %>% filter(Site == site_id))
+  }
+})
+
+filtered_wide <- reactive({
+  site_id <- selected_site()
+  if (is.null(site_id)) {
+    return(mt_data_wide)
+  } else {
+    return(mt_data_wide %>% filter(Site == site_id))
+  }
+})
+```
+
+```{r}
+output$timeseries <- renderPlotly({
+  plot_ly(data = filtered_long(), x = ~Date, y = ~Ecoli,
+               type = 'scatter', mode = 'lines', color=~Site) %>%
+  layout(title = "Time Series",
+         xaxis = list(title = "Date"),
+         yaxis = list(title = "E. Coli"),
+         showlegend = FALSE)
+})
+
+output$datatable <- renderDT({
+  datatable(
+    filtered_wide(), 
+    options = list(pageLength = 5, scrollX = TRUE)
+  )
+})
+```
+ 
+ 
+## {.sidebar}
+
+Here is a basic   **dashboard**
+
+  + Goal:  Visualize ecoli data
+  + Status:  Not  AT ALL complete
+
+## Column
+
+### This is a map
+
+```{r}
+leafletOutput("mymap")
+```
+
+## Column
+
+### These are boxplots: 
+```{r}
+plotlyOutput("timeseries")
+```
+
+
+
+### This is a datatable
+
+This is so cool
+
+```{r}
+DTOutput("datatable")
+```
