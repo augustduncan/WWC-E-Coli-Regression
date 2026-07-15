@@ -27,11 +27,16 @@ Westfeldt Park -- E.Coli.LOG ~ 0.31 + 0.05* Turbidity..Form.Neph.MINIMUM + 0.64*
 
 
 this gives us all the actual data from mountain true, what we would have predicted for those days, and today's predicted value is the last column. 
+
+```{r}
+today <- as.character(Sys.Date() -1 )
+```
+
 ```{r, warning=FALSE, message=FALSE}
 # this will have the updated 2026 mountain true data when i get around to adding that in. 
 
 #pearson bridge
-pb <- get_the_data_and_precip("USGS-03451500", "2020-01-01", "2025-12-31", "FB at Pearson Bridge")
+pb <- get_the_data_and_precip("USGS-03451500", "2020-01-01", today, "FB at Pearson Bridge")
 pb_today <- get_todays_data("USGS-03451500")
 
 pb <- pb %>% mutate(across(where(is.numeric), ~ replace_na(., median(., na.rm = TRUE))))
@@ -39,42 +44,61 @@ pb <- bind_rows(pb, pb_today)
 
 pb$Predict <- 10^(-3.05 + 0.11 * sqrt(pb$Turbidity..Form.Neph.MEAN) + 0.91* log10(pb$Discharge.MEAN) - 0.22* pb$Dissolved.oxygen.MAXIMUM + 0.25* pb$Precip.2.SUM + 0.56*pb$pH.MINIMUM)
 
-pb <- pb %>% select(Date, E.Coli.SUM, Predict) %>% pivot_longer(cols = c(E.Coli.SUM, Predict), names_to = "Variable", values_to = "Value") %>% pivot_wider(names_from = Date, values_from = Value)
+pb <- pb %>% select(Date, E.Coli.SUM, Predict) %>% pivot_longer(cols = c(E.Coli.SUM, Predict), names_to = "Variable", values_to = "Value") %>% pivot_wider(names_from = Date, values_from = Value) %>% mutate(Site = "FB at Pearson Bridge")
 ```
 
 ```{r, warning=FALSE, message=FALSE}
 # hominy creek
-hominy <- get_the_data("USGS-0344878100", "2020-01-01", "2025-12-31", "Hominy Creek Greenway")
+hominy <- get_the_data("USGS-0344878100", "2020-01-01", today, "Hominy Creek Greenway")
 hominy_today <- get_todays_data("USGS-0344878100")
 hominy <- bind_rows(hominy, hominy_today)
 
-hominy <- add_noaa_precip(hominy, "2020-01-01", as.character(Sys.Date()))
+hominy <- add_noaa_precip(hominy, "2020-01-01", today)
 
 hominy <- hominy %>% mutate(across(c(where(is.numeric), -E.Coli.SUM), ~ replace_na(., median(., na.rm = TRUE))))
 
 
 hominy$Predict <- 10^(3.61 + 0.57*log10(hominy$Turbidity..Form.Neph.MEAN) + 0.26*hominy$Precip.2.SUM +  0.34* hominy$Gage.height.MEAN - 0.26*hominy$Dissolved.oxygen.MAXIMUM)
 
-hominy <- hominy %>% select(Date, E.Coli.SUM, Predict) %>% pivot_longer(cols = c(E.Coli.SUM, Predict), names_to = "Variable", values_to = "Value") %>% pivot_wider(names_from = Date, values_from = Value)
+hominy <- hominy %>% select(Date, E.Coli.SUM, Predict) %>% pivot_longer(cols = c(E.Coli.SUM, Predict), names_to = "Variable", values_to = "Value") %>% pivot_wider(names_from = Date, values_from = Value) %>% mutate(Site = "Hominy Creek Greenway")
 ```
-
 
 
 ```{r, warning=FALSE, message=FALSE}
 # bacoate
-bacoate <- get_the_data("USGS-0344878100", "2020-01-01", "2025-12-31", "Hominy Creek Greenway")
-bacoate_today <- get_todays_data("USGS-0344878100")
+bacoate <- get_the_data("USGS-03451200", "2020-01-01", today, "Bacoate")
+bacoate_today <- get_todays_data("USGS-03451200")
 bacoate <- bind_rows(bacoate, bacoate_today)
 
-bacoate <- add_noaa_precip(bacoate, "2020-01-01", "2025-12-31")
+bacoate <- add_noaa_precip(bacoate, "2020-01-01", today)
 bacoate <- bacoate %>% mutate(across(where(is.numeric), ~ replace_na(., median(., na.rm = TRUE))))
 
 
-hominy$Predict <- 10^(3.61 + 0.57*log10(hominy$Turbidity..Form.Neph.MEAN) + 0.26*hominy$Precip.2.SUM +  0.34* hominy$Gage.height.MEAN - 0.26*hominy$Dissolved.oxygen.MAXIMUM)
+bacoate$Predict <- 10^(6.86 + 0.002*(bacoate$Turbidity..Form.Neph.MAXIMUM - bacoate$Turbidity..Form.Neph.MINIMUM) + 0.85*bacoate$Precip.1.SUM - 0.06*bacoate$Specific.cond.at.25C.MINIMUM - 0.24 * bacoate$Dissolved.oxygen.MEAN)
 
-hominy <- hominy %>% select(Date, E.Coli.SUM, Predict) %>% pivot_longer(cols = c(E.Coli.SUM, Predict), names_to = "Variable", values_to = "Value") %>% pivot_wider(names_from = Date, values_from = Value)
+bacoate <- bacoate %>% select(Date, E.Coli.SUM, Predict) %>% pivot_longer(cols = c(E.Coli.SUM, Predict), names_to = "Variable", values_to = "Value") %>% pivot_wider(names_from = Date, values_from = Value) %>% mutate(Site = "Bacoate")
 ```
 
+```{r, warning=FALSE, message=FALSE}
+# westfeldt park
+westfeldt <- get_the_data("USGS-03447687", "2020-01-01", today, "FB at Westfeldt Park")
+westfeldt_today <- get_todays_data("USGS-03447687")
+westfeldt <- bind_rows(westfeldt, westfeldt_today)
+
+westfeldt <- add_usgs_precip(westfeldt, "2020-01-01", today, "USGS-352536082333245")
+westfeldt <- westfeldt %>% mutate(across(where(is.numeric), ~ replace_na(., median(., na.rm = TRUE))))
 
 
+westfeldt$Predict <- 10^(0.31 + 0.05*westfeldt$Turbidity..Form.Neph.MINIMUM + 0.64*log10(westfeldt$Discharge.MEAN) - 0.06*westfeldt$Precip.1.SUM - 0.09*westfeldt$Precip.7.SUM)
 
+westfeldt <- westfeldt %>% select(Date, E.Coli.SUM, Predict) %>% pivot_longer(cols = c(E.Coli.SUM, Predict), names_to = "Variable", values_to = "Value") %>% pivot_wider(names_from = Date, values_from = Value) %>% mutate(Site = "FB at Westfeldt Park")
+```
+
+```{r}
+combined_data <- bind_rows(pb, hominy, bacoate, westfeldt)
+combined_data <- combined_data %>% select(order(names(.))) %>% relocate(Site, Variable) 
+```
+
+right now i think this should work, but it is giving me a value for todays ecoli readings at westfeldt park, when no readings were recorded today
+
+*** also make sure we maintain the lat long column from the mountain true data set!! right now it is getting subset out ***

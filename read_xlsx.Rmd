@@ -79,5 +79,5 @@ ecoli_final <- ecoli_final %>% select(-`Lat/Long`) %>% relocate(Latitude, Longit
 
 
 ```{r}
-write.csv(ecoli_final, "mountain_true.csv")
+write.csv(ecoli_final, "mountain_true.csv", row.names = FALSE)
 ```

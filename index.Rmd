@@ -22,6 +22,7 @@ library(shiny)
 # original, recorded mountain true data
 mt_data_wide<-read.csv("mountain_true.csv", check.names = FALSE)
 
+
 mt_data_wide <- mt_data_wide %>% filter(Site %in% c("FB at Pearson Bridge", "Hominy Creek Greenway", "Bacoate", "FB at Westfeldt Park"))
 #add a unique id column:
 mt_data_wide$ID<-c("x1", "x2", "x3", "x4")
@@ -41,7 +42,7 @@ mt_data_wide <- mt_data_wide %>% mutate(across(where(is.numeric), ~replace_na(.x
 #we also need a long data set for ggplot:
 
 mt_data_long<-mt_data_wide%>%pivot_longer(
-  cols=5:90,
+  cols=5:last_col(),
   names_to="Date",
   values_to="Ecoli"
 )

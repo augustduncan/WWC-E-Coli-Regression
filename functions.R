@@ -126,6 +126,27 @@ add_noaa_precip <- function(df, start_date, end_date){
     relocate(Precip.1.SUM, Precip.2.SUM, Precip.3.SUM, Precip.5.SUM, Precip.7.SUM, .after = last_col())
 }
 
+# if a nearby USGS site has precipitation -- often updated more frequently than NOAA data is, so this should be 
+# used if the USGS site itself does not have precipitation
+add_usgs_precip <- function(df, start_date, end_date, usgs_site){
+  rain <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(start_date, end_date))
+  rain <- rain %>% dplyr::select(time, value) %>% rename(Date = time, Precip.1.SUM = value) %>% st_drop_geometry()
+  
+  rain <- rain %>%
+    mutate(Precip.2.SUM = rollsumr(Precip.1.SUM, k = 2, fill = NA)) %>% 
+    mutate(Precip.3.SUM = rollsumr(Precip.1.SUM, k = 3, fill = NA)) %>% 
+    mutate(Precip.5.SUM = rollsumr(Precip.1.SUM, k = 5, fill = NA)) %>% 
+    mutate(Precip.7.SUM = rollsumr(Precip.1.SUM, k = 7, fill = NA)) %>% 
+    mutate(across(where(is.numeric), round, digits = 2)) %>%
+    mutate(Date = as.character(Date))
+  
+  df_and_rain <- inner_join(df, rain, by = "Date")
+  df_and_rain <- df_and_rain %>% 
+    relocate(Precip.1.SUM, Precip.2.SUM, Precip.3.SUM, Precip.5.SUM, Precip.7.SUM, .after = last_col())
+ 
+   return(df_and_rain)
+}
+
 # groups e Coli levels (observed or predicted) based on the categorizations published by Mountain True. 
 # good to review accuracy of the models
 add_groups <- function(df, column_name){
@@ -182,21 +203,3 @@ get_todays_data <- function(usgs_site){
   
   return(today_usgs)
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
