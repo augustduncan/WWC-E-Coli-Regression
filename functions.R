@@ -177,6 +177,7 @@ get_todays_data <- function(usgs_site){
   today_usgs <- rbind(today_usgs, rain)
   
   today_usgs <- today_usgs %>% pivot_wider(names_from = variable, values_from = all_of(today))
+  today_usgs$Date <- today
   colnames(today_usgs) <- make.names(colnames(today_usgs))
   
   return(today_usgs)
