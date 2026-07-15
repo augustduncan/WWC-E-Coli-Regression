@@ -1,0 +1,83 @@
+---
+title: "getting from XLSX"
+author: "August Duncan"
+date: "2026-07-15"
+output: html_document
+---
+
+```{r}
+library(readxl)
+library(httr)
+library(tidyverse)
+```
+
+```{r}
+# link to the XLSX file on the github. this means this can be updated and pushed regularly and the data can be retrieved !
+github_url <- "https://github.com/augustduncan/WWC-E-Coli-Regression/raw/refs/heads/main/mountain_true.xlsx"
+
+temp_path <- tempfile(fileext = ".xlsx")
+
+# 3. Download the file as a binary file
+download.file(github_url, destfile = temp_path, mode = "wb")
+```
+
+```{r}
+ecoli_each_year <- temp_path %>% excel_sheets() %>% set_names() %>% map(~ read_excel(temp_path, sheet = .x, col_types="text"))
+```
+
+```{r}
+ecoli_long <- ecoli_each_year %>%
+  map_df(function(df) {
+    df %>%
+      pivot_longer(
+        cols = -c(Site, `Lat/Long`)
+      )
+  })
+```
+
+```{r}
+ecoli_wide <- ecoli_long %>%
+  pivot_wider()
+```
+
+```{r}
+save_names<-names(ecoli_wide)
+
+save_names<-save_names[-(1:2)]
+
+save_names<-as.integer(save_names)
+save_names<-as.Date(save_names,origin = "1899-12-30" ) 
+```
+
+```{r}
+ecoli_sub<-ecoli_wide[, -c(1,2)]
+
+ecoli_sub <- data.frame(ecoli_sub, check.names = FALSE)
+colnames(ecoli_sub) <- save_names
+```
+
+```{r}
+ecoli_final<-cbind(ecoli_wide[,1:2], ecoli_sub)
+
+ecoli_final <- ecoli_final %>% drop_na(`Lat/Long`)
+```
+
+```{r}
+clean_coord <- chartr("°'\",NW", "      ", ecoli_final$`Lat/Long`)
+```
+
+```{r}
+sep_coord <- read.table(text = clean_coord, header = FALSE, col.names = c("lat_d", "lat_m", "lat_s", "lon_d", "lon_m", "lon_s"))
+```
+
+```{r}
+ecoli_final$Latitude  <- sep_coord$lat_d + (sep_coord$lat_m / 60) + (sep_coord$lat_s / 3600)
+ecoli_final$Longitude <- -(sep_coord$lon_d + (sep_coord$lon_m / 60) + (sep_coord$lon_s / 3600))
+
+ecoli_final <- ecoli_final %>% select(-`Lat/Long`) %>% relocate(Latitude, Longitude, .after = Site)
+```
+
+
+```{r}
+write.csv(ecoli_final, "mountain_true.csv")
+```
