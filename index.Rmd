@@ -1,5 +1,5 @@
 ---
-title:  "This Dashboard Has a Map!"
+title:  "Warren Wilson EColi Regression!!!!"
 output: 
   flexdashboard::flex_dashboard:
     orientation: columns
@@ -19,30 +19,23 @@ library(shiny)
 
 ```{r}
 
-# original, recorded mountain true data
-mt_data_wide<-read.csv("mountain_true.csv", check.names = FALSE)
+# data from predicing.Rmd
+mt_data_wide<-read.csv("dashboard_data.csv", check.names = FALSE)
 
-
-mt_data_wide <- mt_data_wide %>% filter(Site %in% c("FB at Pearson Bridge", "Hominy Creek Greenway", "Bacoate", "FB at Westfeldt Park"))
-#add a unique id column:
-mt_data_wide$ID<-c("x1", "x2", "x3", "x4")
-mt_data_wide<-mt_data_wide%>%relocate(ID, .after=Site)
+mt_data_wide<-mt_data_wide %>% mutate(ID = paste0("x", cur_group_id()), .by = Site) %>% relocate(ID, .after=Site)
 mt_data_wide$Site<-as.factor(mt_data_wide$Site)
 ```
 
 ```{r} 
 #first get everything data column encoded as numeric. 
 mt_data_wide <- mt_data_wide %>% 
-  mutate(across(5:90, as.numeric))
-mt_data_wide <- mt_data_wide %>% mutate(across(where(is.numeric), ~replace_na(.x, 0)))
+  mutate(across(6:last_col(), as.numeric))
 ```
-
 
 ```{r}
 #we also need a long data set for ggplot:
-
 mt_data_long<-mt_data_wide%>%pivot_longer(
-  cols=5:last_col(),
+  cols=6:last_col(),
   names_to="Date",
   values_to="Ecoli"
 )
@@ -95,7 +88,7 @@ filtered_wide <- reactive({
 ```{r}
 output$timeseries <- renderPlotly({
   plot_ly(data = filtered_long(), x = ~Date, y = ~Ecoli,
-               type = 'scatter', mode = 'lines', color=~Site) %>%
+               type = 'scatter', mode = 'lines', color=~Variable) %>%
   layout(title = "Time Series",
          xaxis = list(title = "Date"),
          yaxis = list(title = "E. Coli"),
@@ -103,8 +96,12 @@ output$timeseries <- renderPlotly({
 })
 
 output$datatable <- renderDT({
+   display_df <- filtered_wide()
+   columns_to_keep <- colSums(!is.na(display_df)) > 0
+   display_df <- display_df[, columns_to_keep, drop = FALSE]
+    
   datatable(
-    filtered_wide(), 
+    display_df, 
     options = list(pageLength = 5, scrollX = TRUE)
   )
 })

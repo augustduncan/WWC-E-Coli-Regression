@@ -27,21 +27,21 @@ get_the_data <- function(usgs_site, start_time, end_time, mountain_true_site){
   
   filtered_usgs <- filtered_usgs %>% left_join(get_codes, by = "parameter_code")
   
-  mountain_true_data <- mountain_true_data %>% dplyr::select(c(-Latitude, -Longitude)) %>% 
-    filter(Site == mountain_true_site) %>% 
-    mutate(parameter_name = "E Coli", statistic_id = "00006")
- 
-  common_cols <- intersect(names(mountain_true_data), names(filtered_usgs))
-  
-  merged_data <- rbind(mountain_true_data[,common_cols], filtered_usgs[,common_cols])
-  
   stats_text <- read_waterdata_metadata(collection = "statistic-codes")
   stats_text <- stats_text %>% rename(statistic_id = statistic_code) %>% 
     dplyr::select(-statistic_description)
   
-  merged_data <- merged_data %>% left_join(stats_text, by = "statistic_id") %>% 
+  filtered_usgs <- filtered_usgs %>% left_join(stats_text, by = "statistic_id") %>% 
     mutate(variable = paste(parameter_name, statistic_name, sep=".")) %>% 
     dplyr::select(-statistic_id, -statistic_name, -parameter_name)
+  
+  mountain_true_data <- mountain_true_data %>%
+    filter(Site == mountain_true_site) %>% 
+    mutate(variable = "E.Coli.SUM")
+ 
+  common_cols <- intersect(names(mountain_true_data), names(filtered_usgs))
+  
+  merged_data <- rbind(mountain_true_data[,common_cols], filtered_usgs[,common_cols])
   
   merged_data <- merged_data %>% 
     pivot_longer(cols = -variable, names_to = "Date", values_to = "value", values_transform = list(value = as.numeric)) %>% 
@@ -50,6 +50,9 @@ get_the_data <- function(usgs_site, start_time, end_time, mountain_true_site){
 }
 
 # if the USGS site contains precipitation, run this function instead. 
+# this is not helpful when trying to predict for today, since it will only grab precipitation data for days matching
+# the mountain true dataset. when predicting, run get_the_data and add_usgs_precip after adding in todays data using 
+# get_todays_data. this is very convoluted isnt it
 get_the_data_and_precip <- function(usgs_site, start_time, end_time, mountain_true_site){
   
   raw_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(start_time, end_time))
@@ -129,7 +132,7 @@ add_noaa_precip <- function(df, start_date, end_date){
 # if a nearby USGS site has precipitation -- often updated more frequently than NOAA data is, so this should be 
 # used if the USGS site itself does not have precipitation
 add_usgs_precip <- function(df, start_date, end_date, usgs_site){
-  rain <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(start_date, end_date))
+  rain <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(start_date, end_date), parameter_code = "00045")
   rain <- rain %>% dplyr::select(time, value) %>% rename(Date = time, Precip.1.SUM = value) %>% st_drop_geometry()
   
   rain <- rain %>%
@@ -160,8 +163,36 @@ add_groups <- function(df, column_name){
 
 # getting data for TODAY (actually this is going to be set for yesterday) 
 # in order to plug into the formulas to predict e coli values!
-# this includes USGS precipitation. 
 get_todays_data <- function(usgs_site){
+  today <- as.character(Sys.Date() - 1)
+  seven_days_ago <- as.character(Sys.Date() - 7)
+  
+  today_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(seven_days_ago, today)) %>% 
+    dplyr::select(parameter_code, statistic_id, time, value) %>% st_drop_geometry() %>% filter(`time` == today)
+  
+  get_codes <- read_waterdata_parameter_codes(parameter_code = today_usgs$parameter_code) %>% 
+    dplyr::select(parameter_code, parameter_name)
+  
+  today_usgs <- today_usgs %>% pivot_wider(names_from = time) %>% left_join(get_codes, by = "parameter_code")
+  
+  stats_text <- read_waterdata_metadata(collection = "statistic-codes")
+  stats_text <- stats_text %>% rename(statistic_id = statistic_code) %>% 
+    dplyr::select(-statistic_description)
+  
+  today_usgs <- today_usgs %>% left_join(stats_text, by = "statistic_id") %>% 
+    mutate(variable = paste(parameter_name, statistic_name, sep=".")) %>% 
+    dplyr::select(-statistic_id, -statistic_name, -parameter_name, -parameter_code)
+  
+  today_usgs <- today_usgs %>% pivot_wider(names_from = variable, values_from = all_of(today))
+  today_usgs$Date <- today
+  colnames(today_usgs) <- make.names(colnames(today_usgs))
+  
+  return(today_usgs)
+}
+
+# same as get_todays_data, but this includes USGS precipitation. 
+# for some reason i set this as the default because im stupid
+get_todays_data_and_precip <- function(usgs_site){
   today <- as.character(Sys.Date() - 1)
   seven_days_ago <- as.character(Sys.Date() - 7)
   
@@ -203,3 +234,27 @@ get_todays_data <- function(usgs_site){
   
   return(today_usgs)
 }
+
+# get lat long points back from Mountain True spreadsheet. realistically i should have
+# left it included the entire time but that would mean going back and redoing everything 
+# and i dont want to deal with that right now when i can just add it back in 
+add_lat_long <- function(df){
+  coords <- mountain_true_data %>% select(Site, Latitude, Longitude)
+  
+  result_df <- df %>% left_join(coords, by = "Site") %>% 
+    relocate(Latitude, Longitude, .after = Site)
+  return(result_df)
+  
+}
+
+
+
+
+
+
+
+
+
+
+
+
