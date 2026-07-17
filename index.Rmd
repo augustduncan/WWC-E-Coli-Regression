@@ -24,6 +24,9 @@ mt_data_wide<-read.csv("dashboard_data.csv", check.names = FALSE)
 
 mt_data_wide<-mt_data_wide %>% mutate(ID = paste0("x", cur_group_id()), .by = Site) %>% relocate(ID, .after=Site)
 mt_data_wide$Site<-as.factor(mt_data_wide$Site)
+
+mt_data_wide <- mt_data_wide %>% mutate(across(where(is.numeric), ~ round(., 2)))
+
 ```
 
 ```{r} 
@@ -88,11 +91,11 @@ filtered_wide <- reactive({
 ```{r}
 output$timeseries <- renderPlotly({
   plot_ly(data = filtered_long(), x = ~Date, y = ~Ecoli,
-               type = 'scatter', mode = 'lines', color=~Variable) %>%
+               type = 'scatter', mode = 'lines', color=~Variable, colors = c("darkgreen", "orangered")) %>%
   layout(title = "Time Series",
          xaxis = list(title = "Date"),
          yaxis = list(title = "E. Coli"),
-         showlegend = FALSE)
+         showlegend = TRUE)
 })
 
 output$datatable <- renderDT({
@@ -101,9 +104,9 @@ output$datatable <- renderDT({
    display_df <- display_df[, columns_to_keep, drop = FALSE]
     
   datatable(
-    display_df, 
+    display_df %>% select(-c(ID, Latitude, Longitude)), 
     options = list(pageLength = 5, scrollX = TRUE)
-  )
+  ) 
 })
 ```
  
@@ -125,7 +128,7 @@ leafletOutput("mymap")
 
 ## Column
 
-### These are boxplots: 
+### My time series!! 
 ```{r}
 plotlyOutput("timeseries")
 ```
