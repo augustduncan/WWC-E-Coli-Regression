@@ -15,6 +15,7 @@ library(sf)
 library(leaflet)
 library(stringr)
 library(shiny)
+source("functions.R")
 ```
 
 ```{r}
@@ -26,7 +27,6 @@ mt_data_wide<-mt_data_wide %>% mutate(ID = paste0("x", cur_group_id()), .by = Si
 mt_data_wide$Site<-as.factor(mt_data_wide$Site)
 
 mt_data_wide <- mt_data_wide %>% mutate(across(where(is.numeric), ~ round(., 2)))
-
 ```
 
 ```{r} 
@@ -44,17 +44,29 @@ mt_data_long<-mt_data_wide%>%pivot_longer(
 )
 ```
 
+```{r}
+# very roundabout way to get column names since they will change everyday
+today_col_wide <- last(colnames(mt_data_wide))
+
+mt_data_wide <- add_groups(mt_data_wide, today_col_wide)
+today_group_col_wide <- last(colnames(mt_data_wide))
+
+mt_data_long <- add_groups(mt_data_long, "Ecoli")
+```
+
+
+
 
 ```{r}
 output$mymap <- renderLeaflet({
-  leaflet(mt_data_wide) %>%
+  leaflet(mt_data_wide) %>% 
+    addProviderTiles(providers$Stadia.OSMB) %>%
     addTiles() %>%
     addMarkers(
       lng = ~Longitude, 
       lat = ~Latitude,
       label = ~Site,
-      layerId = ~Site) %>% 
-    addProviderTiles(providers$Stadia.OSMBright)
+      layerId = ~ID)
 })
 ```
 
@@ -74,7 +86,7 @@ filtered_long <- reactive({
   if (is.null(site_id)) {
     return(mt_data_long) 
   } else {
-    return(mt_data_long %>% filter(Site == site_id))
+    return(mt_data_long %>% filter(ID == site_id))
   }
 })
 
@@ -83,7 +95,7 @@ filtered_wide <- reactive({
   if (is.null(site_id)) {
     return(mt_data_wide)
   } else {
-    return(mt_data_wide %>% filter(Site == site_id))
+    return(mt_data_wide %>% filter(ID == site_id))
   }
 })
 ```
