@@ -19,8 +19,7 @@ source("functions.R")
 ```
 
 ```{r}
-
-# data from predicing.Rmd
+# data from predicting.Rmd
 mt_data_wide<-read.csv("dashboard_data.csv", check.names = FALSE)
 
 mt_data_wide<-mt_data_wide %>% mutate(ID = paste0("x", cur_group_id()), .by = Site) %>% relocate(ID, .after=Site)
@@ -45,7 +44,7 @@ mt_data_long<-mt_data_wide%>%pivot_longer(
 ```
 
 ```{r}
-# very roundabout way to get column names since they will change everyday
+# very roundabout way to get column names since they will change everyday -- these column names are for the textbox 
 today_col_wide <- last(colnames(mt_data_wide))
 
 mt_data_wide <- add_groups(mt_data_wide, today_col_wide)
@@ -55,29 +54,22 @@ mt_data_long <- add_groups(mt_data_long, "Ecoli")
 ```
 
 
-
-
 ```{r}
-output$mymap <- renderLeaflet({
-  leaflet(mt_data_wide) %>% 
-    addProviderTiles(providers$Stadia.OSMB) %>%
-    addTiles() %>%
-    addMarkers(
-      lng = ~Longitude, 
-      lat = ~Latitude,
-      label = ~Site,
-      layerId = ~ID)
-})
-```
-
-```{r}
+# reactive variables and filtered data and such
 selected_site <- reactiveVal(NULL)
+marker_just_clicked <- reactiveVal(FALSE)
 
 observeEvent(input$mymap_marker_click, {
+  req(input$mymap_marker_click$id)
+  marker_just_clicked(TRUE)
   selected_site(input$mymap_marker_click$id)
 })
 
 observeEvent(input$mymap_click, {
+  if (marker_just_clicked()) {
+    marker_just_clicked(FALSE)
+    return()
+  }
   selected_site(NULL)
 })
 
@@ -100,6 +92,58 @@ filtered_wide <- reactive({
 })
 ```
 
+
+```{r}
+output$mymap <- renderLeaflet({
+  pal <- colorFactor(palette = c("primary" = "limegreen", "secondary" = "yellow", "unsafe" = "orangered"), 
+                     domain = mt_data_wide[[today_group_col_wide]])
+  
+  leaflet(mt_data_wide) %>% 
+    addTiles() %>%
+    addProviderTiles(providers$Stadia.OSMBright) %>%
+    addCircleMarkers(
+      lng = ~Longitude, 
+      lat = ~Latitude,
+      label = ~Site,
+      layerId = ~ID,
+      fillOpacity = 1, 
+      color = ~pal(mt_data_wide[[today_group_col_wide]]))
+})
+```
+
+```{r}
+# i definitely did let ai figure out the buttons but they do work
+output$site_buttons <- renderUI({
+  sites <- mt_data_wide %>% select(ID, Site) %>% distinct()
+  
+  button_list <- lapply(seq_len(nrow(sites)), function(i) {
+    site_id <- sites$ID[i]
+    site_name <- sites$Site[i]
+    
+    actionButton(inputId = paste0("btn_", site_id), label = site_name)
+  })
+  
+  tagList(button_list)
+})
+
+
+observe({
+  sites <- mt_data_wide %>% select(ID) %>% distinct() %>% pull(ID)
+  
+  for (site_id in sites) {
+    local({
+      id <- site_id
+      btn_id <- paste0("btn_", id)
+      
+      observeEvent(input[[btn_id]], {
+        selected_site(id)
+      })
+    })
+  }
+})
+```
+
+
 ```{r}
 output$timeseries <- renderPlotly({
   plot_ly(data = filtered_long(), x = ~Date, y = ~Ecoli,
@@ -109,19 +153,46 @@ output$timeseries <- renderPlotly({
          yaxis = list(title = "E. Coli"),
          showlegend = TRUE)
 })
+```
 
-output$datatable <- renderDT({
-   display_df <- filtered_wide()
-   columns_to_keep <- colSums(!is.na(display_df)) > 0
-   display_df <- display_df[, columns_to_keep, drop = FALSE]
-    
-  datatable(
-    display_df %>% select(-c(ID, Latitude, Longitude)), 
-    options = list(pageLength = 5, scrollX = TRUE)
-  ) 
+```{r}
+output$site_summary <- renderText({
+  predict_row <- filtered_wide() %>% filter(Variable == "Predict")
+  actual_row <- filtered_wide() %>% filter(Variable == "E.Coli.SUM") %>% select(-last_col()) 
+  # last column being groups of the predicted values, which we do not need
+  
+  if (nrow(predict_row) > 2) {
+    return("message before something is clicked on? not sure what this should say LOL")
+    }
+  
+  site_name <- predict_row$Site
+  today_prediction <- predict_row[[today_col_wide]]
+  today_group <- predict_row[[today_group_col_wide]]
+  last_real_value <- actual_row %>% select(where(~ !any(is.na(.)))) %>% select(last_col())
+  last_real_date <- names(last_real_value)
+  
+  my_text <- paste0("The predicted E. coli at ", site_name, " for today is ", today_prediction, " MPN/100mL.", "\n",
+                    "Today's safety category is ", today_group, ".", "\n", "The last recorded value was ",
+                    last_real_value, " CFU/100mL, recorded on ", last_real_date, ".")
+  
+  if(is.na(today_prediction)) {
+    return(paste0("Unfortunary, we do not have a prediction for today :( ", "\n", "The last recorded value was ",
+           last_real_value, "CFU/100mL, recorded on ", last_real_date, "."))
+  }
+  
+  return(my_text) 
+})
+
+output$site_header <- renderText({
+  site_name <- filtered_wide() %>% filter(Variable == "Predict")
+  
+  if (nrow(site_name) > 2) {
+    return("Please click on a site to view more information!")
+    }
+  
+  return(as.character(site_name$Site))
 })
 ```
- 
  
 ## {.sidebar}
 
@@ -129,6 +200,16 @@ Here is a basic   **dashboard**
 
   + Goal:  Visualize ecoli data
   + Status:  Not  AT ALL complete
+  
+```{r}
+uiOutput("site_buttons")
+hr()
+
+observeEvent(input$clear_selection, {
+  selected_site(NULL)
+})
+```
+
 
 ## Column
 
@@ -140,17 +221,16 @@ leafletOutput("mymap")
 
 ## Column
 
+### 
+
+```{r}
+h1(textOutput("site_header"))
+
+# textOutput("site_summary") needs to be wrapped in CSS to read the line breaks for some odd reason
+div(style = "white-space: pre-wrap;", textOutput("site_summary"))
+```
+
 ### My time series!! 
 ```{r}
 plotlyOutput("timeseries")
-```
-
-
-
-### This is a datatable
-
-This is so cool
-
-```{r}
-DTOutput("datatable")
 ```
