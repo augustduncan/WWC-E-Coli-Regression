@@ -117,7 +117,7 @@ being actual values and one being predicted?
 
 
 ```{r}
-write.csv(combined_data, "dashboard_data.csv", row.names = FALSE)
+write.csv(combined_data, "data/dashboard_data.csv", row.names = FALSE)
 ```
 
 
