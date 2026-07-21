@@ -99,7 +99,7 @@ filtered_wide <- reactive({
 
 ```{r}
 output$mymap <- renderLeaflet({
-  pal <- colorFactor(palette = c("primary" = "limegreen", "secondary" = "yellow", "unsafe" = "orangered"), 
+  pal <- colorFactor(palette = c("primary" = "limegreen", "secondary" = "#f1c40f", "unsafe" = "orangered"), 
                      domain = mt_data_wide[[today_group_col_wide]])
   
   leaflet(mt_data_wide) %>% 
@@ -168,7 +168,8 @@ output$site_summary <- renderText({
   # last column being groups of the predicted values, which we do not need
   
   if (nrow(predict_row) > 2) {
-    return("message before something is clicked on? not sure what this should say LOL")
+    return("These predictions are made through logarithmic linear regression models. Each site was tested with an 
+           accuracy result of between 70-85%. Swim at your own risk!")
     }
   
   site_name <- predict_row$Site
@@ -177,8 +178,8 @@ output$site_summary <- renderText({
   last_real_value <- actual_row %>% select(where(~ !any(is.na(.)))) %>% select(last_col())
   last_real_date <- names(last_real_value)
   
-  my_text <- paste0("The predicted E. coli at ", site_name, " for today is ", today_prediction, " MPN/100mL.", "\n",
-                    "Today's safety category is ", today_group, ".", "\n", "The last recorded value was ",
+  my_text <- paste0("Predicted E. coli: ", today_prediction, " MPN/100mL", "\n",
+                    "Today's safety category is ", today_group, ".", "\n", "Last recorded value: ",
                     last_real_value, " CFU/100mL, recorded on ", last_real_date, ".")
   
   if(is.na(today_prediction)) {
@@ -189,14 +190,26 @@ output$site_summary <- renderText({
   return(my_text) 
 })
 
-output$site_header <- renderText({
-  site_name <- filtered_wide() %>% filter(Variable == "Predict")
+output$site_header <- renderUI({
+  predict_row <- filtered_wide() %>% filter(Variable == "Predict")
   
-  if (nrow(site_name) > 2) {
+  site_name <- predict_row$Site
+  today_group <- predict_row[[today_group_col_wide]][1]
+  
+  colors <- c("primary" = "#2ecc71", "secondary" = "#f1c40f", "unsafe" = "#e74c3c")
+  
+  bg_color <- colors[today_group]
+  
+  if (length(bg_color) == 0){
+    bg_color <- "#00000000"
+  }
+  
+  if (nrow(predict_row) > 2) {
     return("Please click on a site to view more information!")
     }
   
-  return(as.character(site_name$Site))
+  return(
+    div(style = paste0("background-color: ", bg_color, "; color: white; padding: 10px;"), site_name))
 })
 ```
  
@@ -230,7 +243,7 @@ leafletOutput("mymap")
 ### 
 
 ```{r}
-h2(textOutput("site_header"))
+h2(uiOutput("site_header"))
 
 # textOutput("site_summary") needs to be wrapped in CSS to read the line breaks for some odd reason
 div(style = "white-space: pre-wrap;", textOutput("site_summary"))
