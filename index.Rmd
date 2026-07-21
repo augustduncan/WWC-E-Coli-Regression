@@ -4,6 +4,10 @@ output:
   flexdashboard::flex_dashboard:
     orientation: columns
     runtime: shiny
+    theme:
+      bg: "#FDFDFD"
+      fg: "#101712"
+      navbar-bg: "#98b39f"
 ---
 ```{r, warning=F, message=F}
 library(plotly)
@@ -35,12 +39,12 @@ mt_data_wide <- mt_data_wide %>%
 ```
 
 ```{r}
-#we also need a long data set for ggplot:
+#we also need a long data set for ggplot: 
 mt_data_long<-mt_data_wide%>%pivot_longer(
   cols=6:last_col(),
   names_to="Date",
-  values_to="Ecoli"
-)
+  values_to="Ecoli") %>%
+  mutate(Date = as.Date(Date))
 ```
 
 ```{r}
@@ -120,10 +124,14 @@ output$site_buttons <- renderUI({
     site_id <- sites$ID[i]
     site_name <- sites$Site[i]
     
-    actionButton(inputId = paste0("btn_", site_id), label = site_name)
+    actionButton(
+      inputId = paste0("btn_", site_id), 
+      label = site_name,
+      style = "color: #fff; background-color: #98b39f; border-color: #00000000; font-size: 16px; outline: none;
+      border-radius: 5px")
   })
   
-  tagList(button_list)
+  div(style = "display: flex; flex-wrap: wrap; gap: 10px;", button_list)
 })
 
 
@@ -135,9 +143,7 @@ observe({
       id <- site_id
       btn_id <- paste0("btn_", id)
       
-      observeEvent(input[[btn_id]], {
-        selected_site(id)
-      })
+      observeEvent(input[[btn_id]], {selected_site(id)})
     })
   }
 })
@@ -146,7 +152,7 @@ observe({
 
 ```{r}
 output$timeseries <- renderPlotly({
-  plot_ly(data = filtered_long(), x = ~Date, y = ~Ecoli,
+  plot_ly(data = filtered_long() %>% filter(`Date` >= "2026-01-01"), x = ~Date, y = ~Ecoli,
                type = 'scatter', mode = 'lines', color=~Variable, colors = c("darkgreen", "orangered")) %>%
   layout(title = "Time Series",
          xaxis = list(title = "Date"),
@@ -177,7 +183,7 @@ output$site_summary <- renderText({
   
   if(is.na(today_prediction)) {
     return(paste0("Unfortunary, we do not have a prediction for today :( ", "\n", "The last recorded value was ",
-           last_real_value, "CFU/100mL, recorded on ", last_real_date, "."))
+           last_real_value, " CFU/100mL, recorded on ", last_real_date, "."))
   }
   
   return(my_text) 
@@ -224,7 +230,7 @@ leafletOutput("mymap")
 ### 
 
 ```{r}
-h1(textOutput("site_header"))
+h2(textOutput("site_header"))
 
 # textOutput("site_summary") needs to be wrapped in CSS to read the line breaks for some odd reason
 div(style = "white-space: pre-wrap;", textOutput("site_summary"))

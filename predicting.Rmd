@@ -16,14 +16,19 @@ there four sites at the moment, but this should be fairly easy to just add more 
 
 formulas to be applied (these have been previously worked on and generated):
 
-Pearson Bridge -- E.Coli.LOG ~ -3.05 + 0.11* Turbidity.MEAN.ROOT + 0.91* Discharge.MEAN.LOG - 0.22* Dissolved.oxygen.MAXIMUM + 0.25* Precip.2.SUM + 0.56*pH.MINIMUM
-  USGS Site: USGS-03451500, Mountain True site "FB at Pearson Bridge"
+Pearson Bridge -- E.Coli.LOG ~ -3.05 + 0.11 * Turbidity.MEAN.ROOT + 0.91 * Discharge.MEAN.LOG - 0.22 * 
+    Dissolved.oxygen.MAXIMUM + 0.25 * Precip.2.SUM + 0.56 * pH.MINIMUM
+    USGS Site: USGS-03451500, Mountain True site "FB at Pearson Bridge"
     
-Hominy Creek Greenway -- E.Coli.LOG ~ 3.61 + 0.57* Turbidity.MEAN.LOG + 0.26* Precip.2.SUM +  0.34* Gage.height.MEAN - 0.26*Dissolved.oxygen.MAXIMUM
+Hominy Creek Greenway -- E.Coli.LOG ~ 4.19 + 0.54 * Turbidity.MEAN.LOG - 0.31 * Precip.1.SUM + 
+    0.27 * Precip.3.SUM + 0.39 * Gage.height.MEAN - 0.34 * Dissolved.oxygen.MAXIMUM
 
-Bacoate -- E.Coli.LOG ~ 6.86 + 0.002 * Turbidity.RANGE + 0.85 * Precip.1.SUM - 0.06 * Specific.cond.at.25C.MINIMUM - 0.24 * Dissolved.oxygen.MEAN
+Bacoate -- E.Coli.LOG ~ 7.24 + 0.003 * Turbidity.RANGE + 0.32 * Precip.1.SUM - 
+    0.07 * Specific.cond.at.25C.MINIMUM - 0.26 * Dissolved.oxygen.MEAN
 
-Westfeldt Park -- E.Coli.LOG ~ 0.31 + 0.05* Turbidity..Form.Neph.MINIMUM + 0.64* Discharge.MEAN.LOG - 0.06* Precip.1.SUM - 0.09*Precip.7.SUM
+
+Westfeldt Park -- E.Coli.LOG ~ 0.31 + 0.05 * Turbidity..Form.Neph.MINIMUM + 0.64 * Discharge.MEAN.LOG - 0.06 * 
+    Precip.1.SUM - 0.09 * Precip.7.SUM
 
 
 this gives us all the actual data from mountain true, what we would have predicted for those days, and today's predicted value is the last column. 
@@ -33,7 +38,7 @@ today <- as.character(Sys.Date() -1 )
 ```
 
 ```{r, warning=FALSE, message=FALSE}
-#pearson bridge
+#pearson bridge, precipitation from same usgs site
 pb <- get_the_data_and_precip("USGS-03451500", "2020-01-01", today, "FB at Pearson Bridge")
 pb_today <- get_todays_data("USGS-03451500")
 pb <- bind_rows(pb, pb_today)
@@ -52,13 +57,14 @@ hominy <- get_the_data("USGS-0344878100", "2020-01-01", today, "Hominy Creek Gre
 hominy_today <- get_todays_data("USGS-0344878100")
 hominy <- bind_rows(hominy, hominy_today)
 
-#noaa precip does not get updated frequently enough, yet usgs precipitation only has data since 2024....
-hominy <- add_noaa_precip(hominy, "2020-01-01", today)
+# precipitation coming from usgs swannanoa river at biltmore site
+hominy <- add_usgs_precip(hominy, "2020-01-01", today, "USGS-03451000")
 
 hominy <- hominy %>% mutate(across(c(where(is.numeric), -E.Coli.SUM), ~ replace_na(., median(., na.rm = TRUE))))
 
 
-hominy$Predict <- 10^(3.61 + 0.57*log10(hominy$Turbidity..Form.Neph.MEAN) + 0.26*hominy$Precip.2.SUM +  0.34* hominy$Gage.height.MEAN - 0.26*hominy$Dissolved.oxygen.MAXIMUM)
+hominy$Predict <- 10^(4.19 + 0.54*log10(hominy$Turbidity..Form.Neph.MEAN) - 0.31*hominy$Precip.1.SUM + 
+    0.27*hominy$Precip.3.SUM + 0.39*hominy$Gage.height.MEAN - 0.34*hominy$Dissolved.oxygen.MAXIMUM)
 
 hominy <- hominy %>% select(Date, E.Coli.SUM, Predict) %>% pivot_longer(cols = c(E.Coli.SUM, Predict), names_to = "Variable", values_to = "Value") %>% pivot_wider(names_from = Date, values_from = Value) %>% mutate(Site = "Hominy Creek Greenway")
 ```
@@ -70,17 +76,18 @@ bacoate <- get_the_data("USGS-03451200", "2020-01-01", today, "Bacoate")
 bacoate_today <- get_todays_data("USGS-03451200")
 bacoate <- bind_rows(bacoate, bacoate_today)
 
-bacoate <- add_noaa_precip(bacoate, "2020-01-01", today)
+#getting precip from the pearson bridge usgs site
+bacoate <- add_usgs_precip(bacoate, "2020-01-01", today, "USGS-03451500")
 bacoate <- bacoate %>% mutate(across(c(where(is.numeric), -E.Coli.SUM), ~ replace_na(., median(., na.rm = TRUE))))
 
 
-bacoate$Predict <- 10^(6.86 + 0.002*(bacoate$Turbidity..Form.Neph.MAXIMUM - bacoate$Turbidity..Form.Neph.MINIMUM) + 0.85*bacoate$Precip.1.SUM - 0.06*bacoate$Specific.cond.at.25C.MINIMUM - 0.24 * bacoate$Dissolved.oxygen.MEAN)
+bacoate$Predict <- 10^(7.24 + 0.003*(bacoate$Turbidity..Form.Neph.MAXIMUM - bacoate$Turbidity..Form.Neph.MINIMUM) + 0.32*bacoate$Precip.1.SUM - 0.07*bacoate$Specific.cond.at.25C.MINIMUM - 0.26*bacoate$Dissolved.oxygen.MEAN)
 
 bacoate <- bacoate %>% select(Date, E.Coli.SUM, Predict) %>% pivot_longer(cols = c(E.Coli.SUM, Predict), names_to = "Variable", values_to = "Value") %>% pivot_wider(names_from = Date, values_from = Value) %>% mutate(Site = "Bacoate")
 ```
 
 ```{r, warning=FALSE, message=FALSE}
-# westfeldt park
+# westfeldt park, precipitation from nearby usgs gauge
 westfeldt <- get_the_data("USGS-03447687", "2020-01-01", today, "FB at Westfeldt Park")
 westfeldt_today <- get_todays_data("USGS-03447687")
 westfeldt <- bind_rows(westfeldt, westfeldt_today)
