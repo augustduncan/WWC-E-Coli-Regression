@@ -10,15 +10,16 @@ output:
       navbar-bg: "#98b39f"
 ---
 ```{r, warning=F, message=F}
-library(plotly)
-library(tidyverse)
-library(flexdashboard)
-library(DT)
 library(crosstalk)
-library(sf)
+library(DT)
+library(flexdashboard)
 library(leaflet)
-library(stringr)
+library(plotly)
+library(sf)
 library(shiny)
+library(stringr)
+library(tidyverse)
+
 source("functions.R")
 ```
 
@@ -29,34 +30,26 @@ mt_data_wide<-read.csv("data/dashboard_data.csv", check.names = FALSE)
 mt_data_wide<-mt_data_wide %>% mutate(ID = paste0("x", cur_group_id()), .by = Site) %>% relocate(ID, .after=Site)
 mt_data_wide$Site<-as.factor(mt_data_wide$Site)
 
-mt_data_wide <- mt_data_wide %>% mutate(across(where(is.numeric), ~ round(., 2)))
-```
-
-```{r} 
-#first get everything data column encoded as numeric. 
-mt_data_wide <- mt_data_wide %>% 
-  mutate(across(6:last_col(), as.numeric))
+mt_data_wide <- mt_data_wide %>% mutate(across(6:last_col(), ~ round(., 2)))
 ```
 
 ```{r}
 #we also need a long data set for ggplot: 
-mt_data_long<-mt_data_wide%>%pivot_longer(
-  cols=6:last_col(),
-  names_to="Date",
-  values_to="Ecoli") %>%
+mt_data_long<-mt_data_wide %>% pivot_longer(cols=6:last_col(), names_to="Date", values_to="Ecoli") %>%
   mutate(Date = as.Date(Date))
 ```
 
 ```{r}
-# very roundabout way to get column names since they will change everyday -- these column names are for the textbox 
+# very roundabout way to get column names since they will change everyday -- 
+# these column names are for the textbox mainly  
 today_col_wide <- last(colnames(mt_data_wide))
 
 mt_data_wide <- add_groups(mt_data_wide, today_col_wide)
 today_group_col_wide <- last(colnames(mt_data_wide))
 
 mt_data_long <- add_groups(mt_data_long, "Ecoli")
+mt_data_long$Ecoli.GROUP <- as.factor(mt_data_long$Ecoli.GROUP)
 ```
-
 
 ```{r}
 # reactive variables and filtered data and such
@@ -96,7 +89,6 @@ filtered_wide <- reactive({
 })
 ```
 
-
 ```{r}
 output$mymap <- renderLeaflet({
   pal <- colorFactor(palette = c("primary" = "limegreen", "secondary" = "#f1c40f", "unsafe" = "orangered"), 
@@ -134,7 +126,6 @@ output$site_buttons <- renderUI({
   div(style = "display: flex; flex-wrap: wrap; gap: 10px;", button_list)
 })
 
-
 observe({
   sites <- mt_data_wide %>% select(ID) %>% distinct() %>% pull(ID)
   
@@ -149,15 +140,28 @@ observe({
 })
 ```
 
-
 ```{r}
 output$timeseries <- renderPlotly({
-  plot_ly(data = filtered_long() %>% filter(`Date` >= "2026-01-01"), x = ~Date, y = ~Ecoli,
-               type = 'scatter', mode = 'lines', color=~Variable, colors = c("darkgreen", "orangered")) %>%
-  layout(title = "Time Series",
-         xaxis = list(title = "Date"),
-         yaxis = list(title = "E. Coli"),
-         showlegend = TRUE)
+  df = filtered_long() %>% na.omit()
+  mycolors = c("primary" = "limegreen", "secondary" = "#f1c40f", "unsafe" = "orangered")
+  marker_colors <- unname(mycolors[as.character(df$Ecoli.GROUP)])
+  
+  plot_ly(data = df) %>% 
+    add_lines(data = df %>% filter(Variable == "E.Coli.SUM"), 
+              x = ~Date, y = ~Ecoli, name = "Sampled E Coli",
+              line = list(color = "darkgreen")) %>%
+    add_lines(data = df %>% filter(Variable == "Predict"), 
+              x = ~Date, y = ~Ecoli, name = "Predicted E Coli",
+              line = list(color = "orangered")) %>%
+    add_markers(data = df, x = ~Date, y = ~Ecoli, marker = list(size = 8, color = marker_colors),
+                text = ~paste(Variable), hoverinfo = "text+x+y", legendgroup = ~Ecoli.GROUP, 
+                inherit = FALSE, name = "Safety Category") %>%
+    layout(title = "Time Series",
+           xaxis = list(
+             title = "Date",
+             range = c("2026-05-01", "2026-08-01")),
+           yaxis = list(title = "E. Coli", range = c(0, 5000)),
+           showlegend = TRUE)
 })
 ```
 
@@ -165,11 +169,10 @@ output$timeseries <- renderPlotly({
 output$site_summary <- renderText({
   predict_row <- filtered_wide() %>% filter(Variable == "Predict")
   actual_row <- filtered_wide() %>% filter(Variable == "E.Coli.SUM") %>% select(-last_col()) 
-  # last column being groups of the predicted values, which we do not need
+  # last column being groups of the predicted values, which we do not need for the actual row
   
   if (nrow(predict_row) > 2) {
-    return("These predictions are made through logarithmic linear regression models. Each site was tested with an 
-           accuracy result of between 70-85%. Swim at your own risk!")
+    return("These predictions are made through logarithmic linear regression models. Each site was tested with an accuracy result of between 70-85%. Swim at your own risk!")
     }
   
   site_name <- predict_row$Site
@@ -213,13 +216,11 @@ output$site_header <- renderUI({
 })
 ```
  
-## {.sidebar}
 
-Here is a basic   **dashboard**
 
-  + Goal:  Visualize ecoli data
-  + Status:  Not  AT ALL complete
-  
+
+## {.sidebar data-width=300}
+
 ```{r}
 uiOutput("site_buttons")
 hr()
@@ -229,6 +230,11 @@ observeEvent(input$clear_selection, {
 })
 ```
 
+Primary recreation is defined as E. Coli levels less than 126 MPN/100mL, meaning it is recommended safe to swim and be submerged in the water.
+
+Secondary recreation is defined as E. Coli levels between 126 and 886 MPN/100mL, where the water is not recommended for swimming but generally safe for boating or paddling, with a lower potential for ingestion of the water. 
+
+Above 886 MPN/100mL is classified as unsafe, and it is not recommended to be in the water at this time. 
 
 ## Column
 
@@ -238,9 +244,9 @@ observeEvent(input$clear_selection, {
 leafletOutput("mymap")
 ```
 
-## Column
+## Column 
 
-### 
+### {data-height=225}
 
 ```{r}
 h2(uiOutput("site_header"))
