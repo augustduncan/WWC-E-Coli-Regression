@@ -37,6 +37,7 @@ this gives us all the actual data from mountain true, what we would have predict
 today <- as.character(Sys.Date() -1 )
 ```
 
+
 ```{r, warning=FALSE, message=FALSE}
 #pearson bridge, precipitation from same usgs site
 pb <- get_the_data_and_precip("USGS-03451500", "2020-01-01", today, "FB at Pearson Bridge")

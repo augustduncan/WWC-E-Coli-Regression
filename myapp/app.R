@@ -11,13 +11,19 @@ library(shiny)
 library(stringr)
 library(tidyr)
 
-
-source("myapp/functions.R")
-
+# this is the only function i need from my functions file, so this way i dont have to import that whole thing
+add_groups <- function(df, column_name){
+  group_cut <- cut(df[[column_name]], breaks = c(-1000000, 126, 866, 100000))
+  levels(group_cut) = c("primary", "secondary", "unsafe")
+  
+  data <- cbind(df, group_cut)
+  new_name <- paste(column_name, ".GROUP", sep = "")
+  data <- data %>% rename(!!new_name := group_cut) %>% relocate(!!new_name, .after = all_of(column_name))
+}
 
 # data set up -- maybe this should go in my other file ... ill do that later. 
 # data from predicting.Rmd
-mt_data_wide<-read.csv("myapp/dashboard_data.csv", check.names = FALSE)
+mt_data_wide<-read.csv("dashboard_data.csv", check.names = FALSE)
 
 mt_data_wide<-mt_data_wide %>% mutate(ID = paste0("x", cur_group_id()), .by = Site) %>% relocate(ID, .after=Site)
 mt_data_wide$Site<-as.factor(mt_data_wide$Site)
@@ -94,7 +100,7 @@ server <- function(input, output, session) {
     for (site_id in sites) {
       local({id <- site_id
         btn_id <- paste0("btn_", id)
-        observeEvent(input[[btn_id]], {selected_site(id)})
+        observeEvent(input[[btn_id]], {selected_site(id)}, ignoreInit = TRUE)
       })
     }
   })
@@ -188,7 +194,7 @@ server <- function(input, output, session) {
     }
     
     if (nrow(predict_row) > 2) {
-      return("Please click on a site to view more information!")
+      return(p("Please click on a site to view more information!"))
     }
     
     return(
@@ -200,15 +206,19 @@ server <- function(input, output, session) {
     actual_row <- filtered_wide() %>% filter(Variable == "E.Coli.SUM") %>% select(-last_col()) 
     # last column being groups of the predicted values, which we do not need for the actual row
     
-    if (nrow(predict_row) > 2) {
+    if (nrow(predict_row) > 2 || nrow(predict_row) == 0) {
       return("These predictions are made through logarithmic linear regression models. Each site was tested with an accuracy result of between 70-85%. Swim at your own risk!")
     }
     
     site_name <- predict_row$Site
     today_prediction <- predict_row[[today_col_wide]]
     today_group <- predict_row[[today_group_col_wide]]
-    last_real_value <- actual_row %>% select(where(~ !any(is.na(.)))) %>% select(last_col())
-    last_real_date <- names(last_real_value)
+    
+    if (nrow(actual_row) == 1) {
+      non_na_cols <- names(actual_row)[!is.na(actual_row[1, ])]
+      last_real_date <- tail(non_na_cols, 1)
+      last_real_value <- actual_row[1, last_real_date]
+    }
     
     if(is.na(today_prediction)) {
       return(paste0("Unfortunary, we do not have a prediction for today :( ", "\n", "The last recorded value was ",

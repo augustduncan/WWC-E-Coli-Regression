@@ -2,8 +2,8 @@
 
 #import packages
 library(dataRetrieval)
-library(dplyr)
-library(tidyr)
+library(tidyverse)
+library(sf)
 library(zoo)
 
 # access Mountain True data 
@@ -14,8 +14,12 @@ mountain_true_data <- read.csv("data/mountain_true.csv", check.names=FALSE)
 # input arguments are USGS site number, start and end dates, and the corresponding Mountain True site
 get_the_data <- function(usgs_site, start_time, end_time, mountain_true_site){
   
-  raw_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(start_time, end_time))
-  raw_usgs <- raw_usgs %>% as.data.frame() %>% select(-geometry)
+  meta_info <- read_waterdata_ts_meta(monitoring_location_id = usgs_site)
+  all_codes <- unique(meta_info$parameter_code)
+  
+  raw_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, 
+                                   time = c(start_time, end_time), 
+                                   parameter_code = all_codes)
   
   filtered_usgs <- raw_usgs %>% 
     dplyr::select(parameter_code, statistic_id, time, value) %>% 
@@ -55,10 +59,16 @@ get_the_data <- function(usgs_site, start_time, end_time, mountain_true_site){
 # get_todays_data. this is very convoluted isnt it
 get_the_data_and_precip <- function(usgs_site, start_time, end_time, mountain_true_site){
   
-  raw_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(start_time, end_time))
-  raw_usgs <- raw_usgs %>% as.data.frame() %>% select(-geometry)
+  meta_info <- read_waterdata_ts_meta(monitoring_location_id = usgs_site)
+  all_codes <- unique(meta_info$parameter_code)
   
-  filtered_usgs <- raw_usgs %>% dplyr::select(parameter_code, statistic_id, time, valuest_drop_geometry())
+  raw_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, 
+                                   time = c(start_time, end_time),
+                                   parameter_code = all_codes)
+  
+  filtered_usgs <- raw_usgs %>% 
+    dplyr::select(parameter_code, statistic_id, time, value) %>% 
+    st_drop_geometry()
   
   rain <- filtered_usgs %>% filter(parameter_code == "00045") %>% 
     rename(Precip.1.SUM = value) %>%
@@ -107,9 +117,7 @@ get_the_data_and_precip <- function(usgs_site, start_time, end_time, mountain_tr
 # used if the USGS site itself does not have precipitation
 add_usgs_precip <- function(df, start_date, end_date, usgs_site){
   rain <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(start_date, end_date), parameter_code = "00045")
-  rain <- rain %>% as.data.frame() %>% select(-geometry)
-  rain <- rain %>% dplyr::select(time, value) %>% rename(Date = time, Precip.1.SUM = value) 
-  
+  rain <- rain %>% dplyr::select(time, value) %>% rename(Date = time, Precip.1.SUM = value) %>% st_drop_geometry()
   
   rain <- rain %>%
     mutate(Precip.2.SUM = rollsumr(Precip.1.SUM, k = 2, fill = NA)) %>% 
@@ -143,9 +151,14 @@ get_todays_data <- function(usgs_site){
   today <- as.character(Sys.Date() - 1)
   seven_days_ago <- as.character(Sys.Date() - 7)
   
-  today_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(seven_days_ago, today)) 
-  today_usgs <- today_usgs %>% as.data.frame() %>% select(-geometry) %>% 
-    dplyr::select(parameter_code, statistic_id, time, value) %>% filter(`time` == today)
+  meta_info <- read_waterdata_ts_meta(monitoring_location_id = usgs_site)
+  all_codes <- unique(meta_info$parameter_code)
+  
+  today_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, 
+                                     time = c(seven_days_ago, today),
+                                     parameter_code = all_codes) %>% 
+    dplyr::select(parameter_code, statistic_id, time, value) %>% 
+    st_drop_geometry() %>% filter(`time` == today)
   
   get_codes <- read_waterdata_parameter_codes(parameter_code = today_usgs$parameter_code) %>% 
     dplyr::select(parameter_code, parameter_name)
@@ -173,9 +186,13 @@ get_todays_data_and_precip <- function(usgs_site){
   today <- as.character(Sys.Date() - 1)
   seven_days_ago <- as.character(Sys.Date() - 7)
   
-  today_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(seven_days_ago, today)) %>% 
-    dplyr::select(parameter_code, statistic_id, time, value) 
-  today_usgs <- today_usgs %>% as.data.frame() %>% select(-geometry)
+  meta_info <- read_waterdata_ts_meta(monitoring_location_id = usgs_site)
+  all_codes <- unique(meta_info$parameter_code)
+  
+  today_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, 
+                                     time = c(seven_days_ago, today), 
+                                     parameter_code = all_codes) %>% 
+    dplyr::select(parameter_code, statistic_id, time, value) %>% st_drop_geometry()
   
   rain <- today_usgs %>% filter(parameter_code == "00045") %>% 
     rename(Precip.1.SUM = value) %>%
