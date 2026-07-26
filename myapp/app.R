@@ -12,7 +12,7 @@ library(stringr)
 library(tidyr)
 
 
-source("functions.R")
+source("myapp/functions.R")
 
 
 # data set up -- maybe this should go in my other file ... ill do that later. 
