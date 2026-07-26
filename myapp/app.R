@@ -3,13 +3,14 @@
 
 library(bslib)
 library(crosstalk)
+library(dplyr)
 library(DT)
 library(leaflet)
 library(plotly)
-library(sf)
 library(shiny)
 library(stringr)
-library(tidyverse)
+library(tidyr)
+
 
 source("functions.R")
 

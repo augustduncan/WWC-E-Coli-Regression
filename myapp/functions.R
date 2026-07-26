@@ -2,9 +2,8 @@
 
 #import packages
 library(dataRetrieval)
-library(tidyverse)
-library(sf)
-library(readnoaa)
+library(dplyr)
+library(tidyr)
 library(zoo)
 
 # access Mountain True data 
@@ -16,6 +15,7 @@ mountain_true_data <- read.csv("data/mountain_true.csv", check.names=FALSE)
 get_the_data <- function(usgs_site, start_time, end_time, mountain_true_site){
   
   raw_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(start_time, end_time))
+  raw_usgs <- raw_usgs %>% as.data.frame() %>% select(-geometry)
   
   filtered_usgs <- raw_usgs %>% 
     dplyr::select(parameter_code, statistic_id, time, value) %>% 
@@ -56,10 +56,9 @@ get_the_data <- function(usgs_site, start_time, end_time, mountain_true_site){
 get_the_data_and_precip <- function(usgs_site, start_time, end_time, mountain_true_site){
   
   raw_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(start_time, end_time))
+  raw_usgs <- raw_usgs %>% as.data.frame() %>% select(-geometry)
   
-  filtered_usgs <- raw_usgs %>% 
-    dplyr::select(parameter_code, statistic_id, time, value) %>% 
-    st_drop_geometry()
+  filtered_usgs <- raw_usgs %>% dplyr::select(parameter_code, statistic_id, time, valuest_drop_geometry())
   
   rain <- filtered_usgs %>% filter(parameter_code == "00045") %>% 
     rename(Precip.1.SUM = value) %>%
@@ -104,36 +103,13 @@ get_the_data_and_precip <- function(usgs_site, start_time, end_time, mountain_tr
     relocate(Precip.1.SUM, Precip.2.SUM, Precip.3.SUM, Precip.5.SUM, Precip.7.SUM, .after = last_col())
 }
 
-# use with an appropriate site if the USGS site does not contain precipitation
-# merging NOAA precipitation data to a given dataframe, assuming given dataframe has "Date" as a column
-# assumes NOAA location of downtown Asheville for precipitation as it is the most consistent
-
-# if/when we need more locations: 
-# a station in east avl near the VA hospital and the parkway: US1NCBC0058 has good coverage
-# a station in the NC arboretum: USW00053877 has good coverage
-add_noaa_precip <- function(df, start_date, end_date){
-  daily <- noaa_daily("US1NCBC0051", start_date, end_date, datatypes = c("PRCP"), units = "standard")
-  
-  daily <- daily %>% 
-    mutate(Precip.2.SUM = rollsumr(prcp, k = 2, fill = NA)) %>% 
-    mutate(Precip.3.SUM = rollsumr(prcp, k = 3, fill = NA)) %>% 
-    mutate(Precip.5.SUM = rollsumr(prcp, k = 5, fill = NA)) %>% 
-    mutate(Precip.7.SUM = rollsumr(prcp, k = 7, fill = NA)) %>% 
-    rename(Date = date, Precip.1.SUM = prcp) %>% 
-    mutate(Date = as.character(Date)) %>% 
-    mutate(Precip.1.SUM = replace_na(Precip.1.SUM, 0))
-  
-  merged_data <- inner_join(daily, df, by = "Date")
-    
-  merged_data <- merged_data %>% dplyr::select(-station, -name) %>% 
-    relocate(Precip.1.SUM, Precip.2.SUM, Precip.3.SUM, Precip.5.SUM, Precip.7.SUM, .after = last_col())
-}
-
 # if a nearby USGS site has precipitation -- often updated more frequently than NOAA data is, so this should be 
 # used if the USGS site itself does not have precipitation
 add_usgs_precip <- function(df, start_date, end_date, usgs_site){
   rain <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(start_date, end_date), parameter_code = "00045")
-  rain <- rain %>% dplyr::select(time, value) %>% rename(Date = time, Precip.1.SUM = value) %>% st_drop_geometry()
+  rain <- rain %>% as.data.frame() %>% select(-geometry)
+  rain <- rain %>% dplyr::select(time, value) %>% rename(Date = time, Precip.1.SUM = value) 
+  
   
   rain <- rain %>%
     mutate(Precip.2.SUM = rollsumr(Precip.1.SUM, k = 2, fill = NA)) %>% 
@@ -167,8 +143,9 @@ get_todays_data <- function(usgs_site){
   today <- as.character(Sys.Date() - 1)
   seven_days_ago <- as.character(Sys.Date() - 7)
   
-  today_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(seven_days_ago, today)) %>% 
-    dplyr::select(parameter_code, statistic_id, time, value) %>% st_drop_geometry() %>% filter(`time` == today)
+  today_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(seven_days_ago, today)) 
+  today_usgs <- today_usgs %>% as.data.frame() %>% select(-geometry) %>% 
+    dplyr::select(parameter_code, statistic_id, time, value) %>% filter(`time` == today)
   
   get_codes <- read_waterdata_parameter_codes(parameter_code = today_usgs$parameter_code) %>% 
     dplyr::select(parameter_code, parameter_name)
@@ -197,7 +174,8 @@ get_todays_data_and_precip <- function(usgs_site){
   seven_days_ago <- as.character(Sys.Date() - 7)
   
   today_usgs <- read_waterdata_daily(monitoring_location_id = usgs_site, time = c(seven_days_ago, today)) %>% 
-    dplyr::select(parameter_code, statistic_id, time, value) %>% st_drop_geometry()
+    dplyr::select(parameter_code, statistic_id, time, value) 
+  today_usgs <- today_usgs %>% as.data.frame() %>% select(-geometry)
   
   rain <- today_usgs %>% filter(parameter_code == "00045") %>% 
     rename(Precip.1.SUM = value) %>%
