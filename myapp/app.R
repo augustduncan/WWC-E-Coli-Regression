@@ -16,7 +16,7 @@ source("functions.R")
 
 # data set up -- maybe this should go in my other file ... ill do that later. 
 # data from predicting.Rmd
-mt_data_wide<-read.csv("data/dashboard_data.csv", check.names = FALSE)
+mt_data_wide<-read.csv("myapp/data/dashboard_data.csv", check.names = FALSE)
 
 mt_data_wide<-mt_data_wide %>% mutate(ID = paste0("x", cur_group_id()), .by = Site) %>% relocate(ID, .after=Site)
 mt_data_wide$Site<-as.factor(mt_data_wide$Site)
