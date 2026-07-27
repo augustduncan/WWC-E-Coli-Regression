@@ -47,7 +47,7 @@ jobs:
         run: |
           # "." points to the root directory where app.R lives
           # "site" is the temporary build directory created for the output
-          Rscript -e 'shinylive::export(".", "site")'
+          Rscript -e 'shinylive::export("myapp", "site")'
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
