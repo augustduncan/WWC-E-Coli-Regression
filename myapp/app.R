@@ -4,7 +4,6 @@
 library(bslib)
 library(crosstalk)
 library(dplyr)
-library(DT)
 library(leaflet)
 library(plotly)
 library(shiny)
@@ -129,7 +128,6 @@ server <- function(input, output, session) {
     
     leaflet(mt_data_wide) %>% 
       addTiles() %>%
-      addProviderTiles(providers$Stadia.OSMBright) %>%
       addCircleMarkers(
         lng = ~Longitude, 
         lat = ~Latitude,
