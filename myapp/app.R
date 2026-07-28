@@ -240,7 +240,7 @@ server <- function(input, output, session) {
                     last_real_value, " CFU/100mL, recorded on ", last_real_date, "."))
     }
     
-    paste0("Predicted E. coli: ", today_prediction, " MPN/100mL", "\n",
+    paste0("Predicted E. coli as of ", today_col_wide, " is: " today_prediction, " MPN/100mL", "\n",
            "Today's safety category is ", today_group, ".", "\n", "Last recorded value: ",
            last_real_value, " CFU/100mL, recorded on ", last_real_date, ".")
   })
