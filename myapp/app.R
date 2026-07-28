@@ -45,14 +45,14 @@ mt_data_long$Ecoli.GROUP <- as.factor(mt_data_long$Ecoli.GROUP)
 
 # UI setup
 ui <- page_sidebar(
-  title = "Warren Wilson EColi Regression",
-  theme = bs_theme(bg = "#FDFDFD", fg = "#101712", primary = "#98b39f"),
+  title = "E Coli Predictions in WNC - Warren Wilson College",
+  theme = bs_theme(bg = "#FDFDFD", fg = "#101712", primary = "#98b39f", 
+                   base_font = font_google("Lato"),
+                   heading_font = font_google("Lato")),
   
   sidebar = sidebar(
     width = 300,
     uiOutput("site_buttons"),
-    actionButton("clear_selection", "Clear Selection", class = "btn-sm btn-outline-secondary mt-2"),
-    hr(),
     p("Primary recreation is defined as E. Coli levels less than 126 MPN/100mL, meaning it is recommended safe to swim and be submerged in the water."),
     p("Secondary recreation is defined as E. Coli levels between 126 and 886 MPN/100mL, where the water is not recommended for swimming but generally safe for boating or paddling, with a lower potential for ingestion of the water."),
     p("Above 886 MPN/100mL is classified as unsafe, and it is not recommended to be in the water at this time.")),
@@ -60,12 +60,12 @@ ui <- page_sidebar(
   layout_columns(
     col_widths = c(6, 6),
     
-    card(card_header("Site Map"), leafletOutput("mymap", height = "650px")),
+    card(card_header(h3("Site Map")), leafletOutput("mymap", height = "1000px")),
     
-    layout_columns( col_widths = 12,
-      card(card_header(uiOutput("site_header")), 
+    layout_columns(col_widths = 12,
+      card(card_header(h3(uiOutput("site_header"))), 
            div(style = "white-space: pre-wrap; padding: 10px;", textOutput("site_summary"))),
-      card(card_header("Time Series"),
+      card(card_header(h3("Time Series")),
         plotlyOutput("timeseries", height = "400px")))
   )
 )
@@ -155,7 +155,17 @@ server <- function(input, output, session) {
   })
   
   output$timeseries <- renderPlotly({
-    df = filtered_long() %>% na.omit()
+    clickmap <- input$mymap_click
+    
+    if (is.null(clickmap)) {
+      df <- mt_data_long %>% 
+        filter(Site == "FB at Pearson Bridge") %>% 
+        na.omit()
+    } else {
+      df <- filtered_long() %>% na.omit()
+    }
+    
+    
     mycolors = c("primary" = "limegreen", "secondary" = "#f1c40f", "unsafe" = "orangered")
     marker_colors <- unname(mycolors[as.character(df$Ecoli.GROUP)])
     
@@ -196,7 +206,14 @@ server <- function(input, output, session) {
     }
     
     return(
-      div(style = paste0("background-color: ", bg_color, "; color: white; padding: 10px;"), site_name))
+      div(style = paste0("background-color: ", bg_color, "; ",
+                         "color: white; ",
+                         "padding: 15px; ",
+                         "width: 100%; ",
+                         "display: block; ",
+                         "font-weight: bold; ",
+                         "border-top-left-radius: inherit; ", # Preserves clean card rounded edges
+                         "border-top-right-radius: inherit;"), site_name))
   })
   
   output$site_summary <- renderText({
