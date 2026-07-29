@@ -44,9 +44,7 @@ mt_data_long$Ecoli.GROUP <- as.factor(mt_data_long$Ecoli.GROUP)
 ui <- page_sidebar(
   titlePanel("E Coli Predictions in WNC - Warren Wilson College"),
   theme = bs_theme(bg = "#ccd2e3",
-                   fg = "#020d2b",
-                   base_font = font_google("Lato"),
-                   heading_font = font_google("Lato")),
+                   fg = "#020d2b"),
   sidebar = sidebar(
     width = 300,
     uiOutput("site_buttons"),
