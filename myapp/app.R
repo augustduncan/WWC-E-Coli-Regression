@@ -1,6 +1,3 @@
-# so im gonna have to make this a shiny app. 
-# i dont think i have any other options at this point, so lets see how it goes!
-
 library(bslib)
 library(crosstalk)
 library(dplyr)
@@ -45,11 +42,11 @@ mt_data_long$Ecoli.GROUP <- as.factor(mt_data_long$Ecoli.GROUP)
 
 # UI setup
 ui <- page_sidebar(
-  title = "E Coli Predictions in WNC - Warren Wilson College",
-  theme = bs_theme(bg = "#FDFDFD", fg = "#101712", primary = "#98b39f", 
+  titlePanel("E Coli Predictions in WNC - Warren Wilson College"),
+  theme = bs_theme(bg = "#ccd2e3",
+                   fg = "#020d2b",
                    base_font = font_google("Lato"),
                    heading_font = font_google("Lato")),
-  
   sidebar = sidebar(
     width = 300,
     uiOutput("site_buttons"),
@@ -60,18 +57,17 @@ ui <- page_sidebar(
   layout_columns(
     col_widths = c(6, 6),
     
-    card(card_header(h3("Site Map")), leafletOutput("mymap", height = "1000px")),
+    card(card_header(h3("Site Map")), leafletOutput("mymap", height = "1000px"), style = "background-color: #f0f2f7;"),
     
     layout_columns(col_widths = 12,
-      card(card_header(h3(uiOutput("site_header"))), 
-           div(style = "white-space: pre-wrap; padding: 10px;", textOutput("site_summary"))),
-      card(card_header(h3("Time Series")),
-        plotlyOutput("timeseries", height = "400px")))
+                   #value_box(title = NULL, value = uiOutput("site_header")),
+                   uiOutput("site_container"),
+                   card(plotlyOutput("timeseries", height = "400px"),  
+                        style = "background-color: #f0f2f7;"))
+    )
   )
-)
 
 # server setup
-
 server <- function(input, output, session) {
 # everything goes in here. the plots, maps, summary, and my reactive variable functions
   
@@ -147,24 +143,23 @@ server <- function(input, output, session) {
       actionButton(
         inputId = paste0("btn_", site_id), 
         label = site_name,
-        style = "color: #fff; background-color: #98b39f; border-color: #00000000; font-size: 16px; outline: none;
-        border-radius: 5px")
+        style = "color: #fff; background-color: #020d2b; border-color: #00000000; font-size: 16px; outline: none;
+        border-radius: 5px; width: 100%")
     })
     
     div(style = "display: flex; flex-wrap: wrap; gap: 10px;", button_list)
   })
   
   output$timeseries <- renderPlotly({
-    clickmap <- input$mymap_click
+    df <- filtered_long() %>% na.omit()
+    all_sites <- unique(df$Site)
     
-    if (is.null(clickmap)) {
+    if (length(all_sites) > 1) {
       df <- mt_data_long %>% 
-        filter(Site == "FB at Pearson Bridge") %>% 
-        na.omit()
-    } else {
-      df <- filtered_long() %>% na.omit()
-    }
+        filter(Site == "FB at Pearson Bridge") %>% na.omit()
+    } 
     
+    site_name <- unique(df$Site)
     
     mycolors = c("primary" = "limegreen", "secondary" = "#f1c40f", "unsafe" = "orangered")
     marker_colors <- unname(mycolors[as.character(df$Ecoli.GROUP)])
@@ -179,7 +174,7 @@ server <- function(input, output, session) {
       add_markers(data = df, x = ~Date, y = ~Ecoli, marker = list(size = 8, color = marker_colors),
                   text = ~paste(Variable), hoverinfo = "text+x+y", legendgroup = ~Ecoli.GROUP, 
                   inherit = FALSE, name = "Safety Category") %>%
-      layout(title = "Time Series",
+      layout(title = site_name,
              xaxis = list(
                title = "Date",
                range = c("2026-05-01", "2026-08-01")),
@@ -187,42 +182,18 @@ server <- function(input, output, session) {
              showlegend = TRUE)
   })
   
-  output$site_header <- renderUI({
-    predict_row <- filtered_wide() %>% filter(Variable == "Predict")
-    
-    site_name <- predict_row$Site
-    today_group <- predict_row[[today_group_col_wide]][1]
-    
-    colors <- c("primary" = "#2ecc71", "secondary" = "#f1c40f", "unsafe" = "#e74c3c")
-    
-    bg_color <- colors[today_group]
-    
-    if (length(bg_color) == 0){
-      bg_color <- "#00000000"
-    }
-    
-    if (nrow(predict_row) > 2) {
-      return(p("Please click on a site to view more information!"))
-    }
-    
-    return(
-      div(style = paste0("background-color: ", bg_color, "; ",
-                         "color: white; ",
-                         "padding: 15px; ",
-                         "width: 100%; ",
-                         "display: block; ",
-                         "font-weight: bold; ",
-                         "border-top-left-radius: inherit; ", # Preserves clean card rounded edges
-                         "border-top-right-radius: inherit;"), site_name))
-  })
-  
-  output$site_summary <- renderText({
+  output$site_container <- renderUI({
     predict_row <- filtered_wide() %>% filter(Variable == "Predict")
     actual_row <- filtered_wide() %>% filter(Variable == "E.Coli.SUM") %>% select(-last_col()) 
     # last column being groups of the predicted values, which we do not need for the actual row
     
-    if (nrow(predict_row) > 2 || nrow(predict_row) == 0) {
-      return("These predictions are made through logarithmic linear regression models. Each site was tested with an accuracy result of between 70-85%. Swim at your own risk!")
+    if (nrow(predict_row) != 1) {
+      return(value_box(
+        title = NULL,
+        value = "Please click on a site to view more information!",
+        p("These predictions are made through logarithmic linear regression models. Each site was tested with an accuracy result of between 70-85%. Swim at your own risk!"),
+        theme = value_box_theme(bg = "#f0f2f7", fg = "#020d2b")
+      ))
     }
     
     site_name <- predict_row$Site
@@ -235,20 +206,27 @@ server <- function(input, output, session) {
       last_real_value <- actual_row[1, last_real_date]
     }
     
+    textbox <- paste0("Predicted E. coli as of ", today_col_wide, " is: ", today_prediction, " MPN/100mL", "\n",
+                      "Today's safety category is ", today_group, ".", "\n", "Last recorded value: ",
+                      last_real_value, " CFU/100mL, recorded on ", last_real_date, ".")
+    
     if(is.na(today_prediction)) {
-      return(paste0("Unfortunary, we do not have a prediction for today :( ", "\n", "The last recorded value was ",
-                    last_real_value, " CFU/100mL, recorded on ", last_real_date, "."))
+      textbox <- paste0("Unfortunary, we do not have a prediction for today :( ", "\n", "The last recorded value was ",
+                    last_real_value, " CFU/100mL, recorded on ", last_real_date, ".")
     }
     
-    paste0("Predicted E. coli as of ", today_col_wide, " is: " today_prediction, " MPN/100mL", "\n",
-           "Today's safety category is ", today_group, ".", "\n", "Last recorded value: ",
-           last_real_value, " CFU/100mL, recorded on ", last_real_date, ".")
+    box_theme <- switch(as.character(today_group),
+                        "primary"   = value_box_theme(bg = "#2ecc71", fg = "#ffffff"),
+                        "secondary" = value_box_theme(bg = "#f1c40f", fg = "#ffffff"),
+                        "unsafe"    = value_box_theme(bg = "#e74c3c", fg = "#ffffff")
+    )
+    
+    value_box(title = NULL, 
+              value = site_name, 
+              p(textbox),
+              theme = box_theme)
   })
-
 }
 
 
 shinyApp(ui = ui, server = server)
-
-
-
