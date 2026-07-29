@@ -162,21 +162,33 @@ server <- function(input, output, session) {
     mycolors = c("primary" = "limegreen", "secondary" = "#f1c40f", "unsafe" = "orangered")
     marker_colors <- unname(mycolors[as.character(df$Ecoli.GROUP)])
     
-    plot_ly(data = df) %>% 
+    p <- plot_ly(data = df) %>% 
       add_lines(data = df %>% filter(Variable == "E.Coli.SUM"), 
                 x = ~Date, y = ~Ecoli, name = "Sampled E Coli",
                 line = list(color = "darkgreen")) %>%
       add_lines(data = df %>% filter(Variable == "Predict"), 
                 x = ~Date, y = ~Ecoli, name = "Predicted E Coli",
                 line = list(color = "orangered")) %>%
-      add_markers(data = df, x = ~Date, y = ~Ecoli, marker = list(size = 8, color = marker_colors),
+      add_markers(data = df, x = ~Date, y = ~Ecoli, 
+                  marker = list(size = 8, color = marker_colors),
                   text = ~paste(Variable), hoverinfo = "text+x+y", legendgroup = ~Ecoli.GROUP, 
-                  inherit = FALSE, name = "Safety Category") %>%
-      layout(title = site_name,
+                  inherit = FALSE, name = "Safety Category", 
+                  showlegend = FALSE)
+      
+    
+    for (color in names(mycolors)){
+      p <- p %>% add_trace(x = df$Date[1], y = df$Ecoli[1],
+                           type = "scatter", mode = "markers",
+                           name = color, marker = list(size = 8, color = mycolors[[color]]),
+                           showlegend = TRUE)
+    }
+    
+    p %>% layout(title = site_name,
              xaxis = list(
                title = "Date",
                range = c("2026-05-01", "2026-08-01")),
              yaxis = list(title = "E. Coli", range = c(0, 5000)),
+             margin = (autoexpand = FALSE),
              showlegend = TRUE)
   })
   
