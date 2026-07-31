@@ -2,7 +2,7 @@ name: Deploy Shinylive App
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -45,8 +45,6 @@ jobs:
 
       - name: Build Shinylive assets from root
         run: |
-          # "." points to the root directory where app.R lives
-          # "site" is the temporary build directory created for the output
           Rscript -e 'shinylive::export("myapp", "site")'
 
       - name: Setup Pages
