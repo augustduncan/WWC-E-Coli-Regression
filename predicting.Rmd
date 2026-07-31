@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r}
-library(tidyverse)
+library(dplyr)
 source("functions.R")
 ```
 
