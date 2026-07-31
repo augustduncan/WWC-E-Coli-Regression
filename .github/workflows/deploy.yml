@@ -43,6 +43,14 @@ jobs:
             any::stringr
             any::tidyr
 
+      - name: Render predicting.Rmd
+        run: |
+          Rscript -e 'rmarkdown::render("predicting.Rmd")'
+
+      - name: Execute app.R script
+        run: |
+          Rscript -e 'source("myapp/app.R")'
+
       - name: Build Shinylive assets from root
         run: |
           Rscript -e 'shinylive::export("myapp", "site")'
