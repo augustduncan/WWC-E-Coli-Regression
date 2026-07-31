@@ -19,7 +19,7 @@ add_groups <- function(df, column_name){
 
 # data set up -- maybe this should go in my other file ... ill do that later. 
 # data from predicting.Rmd
-mt_data_wide<-read.csv("dashboard_data.csv", check.names = FALSE)
+mt_data_wide<-read.csv("myapp/dashboard_data.csv", check.names = FALSE)
 
 mt_data_wide<-mt_data_wide %>% mutate(ID = paste0("x", cur_group_id()), .by = Site) %>% relocate(ID, .after=Site)
 mt_data_wide$Site<-as.factor(mt_data_wide$Site)
