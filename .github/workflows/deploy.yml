@@ -31,17 +31,6 @@ jobs:
 
       - name: Install dependencies
         uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          packages: |
-            any::shinylive
-            any::bslib
-            any::crosstalk
-            any::dplyr
-            any::leaflet
-            any::plotly
-            any::shiny
-            any::stringr
-            any::tidyr
 
       - name: Render predicting.Rmd
         run: |
