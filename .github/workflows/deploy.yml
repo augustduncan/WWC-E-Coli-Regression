@@ -1,14 +1,12 @@
 name: Deploy Shinylive App
 
 on:
-  push:
-    branches: [main]
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -37,6 +35,20 @@ jobs:
       - name: Render predicting.Rmd
         run: |
           Rscript -e 'rmarkdown::render("predicting.Rmd")'
+
+      - name: Commit and push updated files
+        run: |
+          git config --global user.name "augustduncan"
+          git config --global user.email "203911652+augustduncan@users.noreply.github.com"
+          
+          git add myapp/dashboard_data.csv
+          
+          if ! git diff --cached --quiet; then
+            git commit -m "automated update for today's dashboard data"
+            git push
+          else
+            echo "no changes made!"
+          fi
 
       - name: Build Shinylive assets from root
         run: |
