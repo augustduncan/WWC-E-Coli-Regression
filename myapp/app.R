@@ -163,13 +163,15 @@ server <- function(input, output, session) {
     marker_colors <- unname(mycolors[as.character(df$Ecoli.GROUP)])
     
     p <- plot_ly(data = df) %>% 
-      add_lines(data = df %>% filter(Variable == "E.Coli.SUM"), 
+      add_markers(data = df %>% filter(Variable == "E.Coli.SUM"), 
                 x = ~Date, y = ~Ecoli, name = "Sampled E Coli",
-                line = list(color = "darkgreen")) %>%
+                marker = list(size = 10, color = "black")) %>%
+      
       add_lines(data = df %>% filter(Variable == "Predict"), 
-                x = ~Date, y = ~Ecoli, name = "Predicted E Coli",
-                line = list(color = "orangered")) %>%
-      add_markers(data = df, x = ~Date, y = ~Ecoli, 
+                x = ~Date, y = ~Ecoli, name = "Predicted E Coli", type = 'scatter', 
+                mode = 'lines', line = list(shape = 'spline', smoothing = 0.5)) %>%
+      
+      add_markers(data = df %>% filter(Variable == "Predict"), x = ~Date, y = ~Ecoli, 
                   marker = list(size = 8, color = marker_colors),
                   text = ~paste(Variable), hoverinfo = "text+x+y", legendgroup = ~Ecoli.GROUP, 
                   inherit = FALSE, name = "Safety Category", 
