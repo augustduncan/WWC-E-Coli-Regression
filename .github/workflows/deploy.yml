@@ -39,7 +39,7 @@ jobs:
       - name: Commit and push updated files
         run: |
           git config --global user.name "augustduncan"
-          git config --global user.email "203911652+augustduncan@users.noreply.github.com"
+          git config --global user.email "vduncan.f24@warren-wilson.edu"
           
           git add myapp/dashboard_data.csv
           
