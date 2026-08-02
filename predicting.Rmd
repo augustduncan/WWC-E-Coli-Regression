@@ -34,7 +34,7 @@ Westfeldt Park -- E.Coli.LOG ~ 0.31 + 0.05 * Turbidity..Form.Neph.MINIMUM + 0.64
 this gives us all the actual data from mountain true, what we would have predicted for those days, and today's predicted value is the last column. 
 
 ```{r}
-today <- as.character(Sys.Date() -1 )
+today <- as.character(Sys.Date() -1)
 ```
 
 
