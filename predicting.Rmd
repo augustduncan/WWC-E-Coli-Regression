@@ -33,8 +33,10 @@ Westfeldt Park -- E.Coli.LOG ~ 0.31 + 0.05 * Turbidity..Form.Neph.MINIMUM + 0.64
 
 this gives us all the actual data from mountain true, what we would have predicted for those days, and today's predicted value is the last column. 
 
+this is yesterday, since USGS does not have complete values for the current date since the data is still being collected obviously. yesterday's date is specified in the dashboard
 ```{r}
-today <- as.character(Sys.Date() -1)
+timezone <- "America/New_York"
+today <- as.character(as.Date(Sys.time(), tz = timezone) - 1)
 ```
 
 
