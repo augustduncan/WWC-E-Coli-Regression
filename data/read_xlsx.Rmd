@@ -13,7 +13,7 @@ library(tidyverse)
 
 ```{r}
 # link to the XLSX file on the github. this means this can be updated and pushed regularly and the data can be retrieved !
-github_url <- "https://github.com/augustduncan/WWC-E-Coli-Regression/raw/refs/heads/main/mountain_true.xlsx"
+github_url <- "https://github.com/augustduncan/WWC-E-Coli-Regression/blob/main/data/mountain_true.xlsx"
 
 temp_path <- tempfile(fileext = ".xlsx")
 
@@ -79,5 +79,5 @@ ecoli_final <- ecoli_final %>% select(-`Lat/Long`) %>% relocate(Latitude, Longit
 
 
 ```{r}
-write.csv(ecoli_final, "mountain_true.csv", row.names = FALSE)
+write.csv(ecoli_final, "data/mountain_true.csv", row.names = FALSE)
 ```
