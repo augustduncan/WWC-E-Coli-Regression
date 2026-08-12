@@ -218,24 +218,25 @@ server <- function(input, output, session) {
       last_real_value <- actual_row[1, last_real_date]
     }
     
-    textbox <- paste0("Predicted E. coli as of ", today_col_wide, " is: ", today_prediction, " MPN/100mL", "\n",
-                      "Today's safety category is ", today_group, ".", "\n", "Last recorded value: ",
+    textbox <- paste0("Predicted E. coli as of ", today_col_wide, " is: ", today_prediction, " MPN/100mL.", "<br>",
+                      "Today's safety category is ", today_group, ".", "<br>", "Last recorded value: ",
                       last_real_value, " CFU/100mL, recorded on ", last_real_date, ".")
     
     if(is.na(today_prediction)) {
-      textbox <- paste0("Unfortunary, we do not have a prediction for today :( ", "\n", "The last recorded value was ",
+      textbox <- paste0("Unfortunary, we do not have a prediction for today due to a lack of USGS data.", "<br>", "The last recorded value was ",
                     last_real_value, " CFU/100mL, recorded on ", last_real_date, ".")
     }
     
     box_theme <- switch(as.character(today_group),
                         "primary"   = value_box_theme(bg = "#2ecc71", fg = "#ffffff"),
                         "secondary" = value_box_theme(bg = "#f1c40f", fg = "#ffffff"),
-                        "unsafe"    = value_box_theme(bg = "#e74c3c", fg = "#ffffff")
+                        "unsafe"    = value_box_theme(bg = "#e74c3c", fg = "#ffffff"),
+                         value_box_theme(bg = "#f0f2f7", fg = "#020d2b")
     )
     
     value_box(title = NULL, 
               value = site_name, 
-              p(textbox),
+              p(HTML(textbox)),
               theme = box_theme)
   })
 }
