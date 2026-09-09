@@ -4,6 +4,7 @@ library(dplyr)
 library(leaflet)
 library(plotly)
 library(shiny)
+library(shinyalert)
 library(stringr)
 library(tidyr)
 
@@ -19,7 +20,12 @@ add_groups <- function(df, column_name){
 
 # data set up -- maybe this should go in my other file ... ill do that later. 
 # data from predicting.Rmd
+
 mt_data_wide<-read.csv("dashboard_data.csv", check.names = FALSE)
+
+# this is only for the off season! this line can be deleted and the app will work as intended. 
+# this will set the last column to "today", july 1st 2026
+mt_data_wide <- mt_data_wide[, 1:97]
 
 mt_data_wide<-mt_data_wide %>% mutate(ID = paste0("x", cur_group_id()), .by = Site) %>% relocate(ID, .after=Site)
 mt_data_wide$Site<-as.factor(mt_data_wide$Site)
@@ -61,8 +67,8 @@ ui <- page_sidebar(
                    #value_box(title = NULL, value = uiOutput("site_header")),
                    uiOutput("site_container"),
                    card(plotlyOutput("timeseries", height = "400px"),  
-                        style = "background-color: #f0f2f7;"))
-    )
+                        style = "background-color: #f0f2f7;"))),
+  useShinyalert()
   )
 
 # server setup
@@ -239,6 +245,13 @@ server <- function(input, output, session) {
               p(HTML(textbox)),
               theme = box_theme)
   })
+  
+  shinyalert(
+    title = "Hello! ", 
+    text = "This prediction model is inactive for the season, and will be back up and running in May! 
+    In the meantime, the dashboard will be set to an example date of July 1st, 2026.", 
+    type = "info"
+  )
 }
 
 
