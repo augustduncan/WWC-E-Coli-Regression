@@ -67,8 +67,7 @@ ui <- page_sidebar(
                    #value_box(title = NULL, value = uiOutput("site_header")),
                    uiOutput("site_container"),
                    card(plotlyOutput("timeseries", height = "400px"),  
-                        style = "background-color: #f0f2f7;"))),
-  useShinyalert()
+                        style = "background-color: #f0f2f7;")))
   )
 
 # server setup
@@ -208,8 +207,10 @@ server <- function(input, output, session) {
     if (nrow(predict_row) != 1) {
       return(value_box(
         title = NULL,
-        value = "Please click on a site to view more information!",
-        p("These predictions are made through logarithmic linear regression models. Each site was tested with an accuracy result of between 70-85%. Swim at your own risk!"),
+        # value = "Please click on a site to view more information!",
+        value = "The swimming season is over, check back in May!", 
+        # p("These predictions are made through logarithmic linear regression models. Each site was tested with an accuracy result of between 70-85%. Swim at your own risk!"),
+        p("This dashboard is set to a consistent date of July 1st, 2026. The predictions were made through logarithmic linear regression models, with accuracy results between 70-85%."), 
         theme = value_box_theme(bg = "#f0f2f7", fg = "#020d2b")
       ))
     }
@@ -246,12 +247,6 @@ server <- function(input, output, session) {
               theme = box_theme)
   })
   
-  shinyalert(
-    title = "Hello! ", 
-    text = "This prediction model is inactive for the season, and will be back up and running in May! 
-    In the meantime, the dashboard will be set to an example date of July 1st, 2026.", 
-    type = "info"
-  )
 }
 
 
